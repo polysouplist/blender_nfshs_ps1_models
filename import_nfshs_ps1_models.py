@@ -90,9 +90,9 @@ def main(context, file_path, is_traffic, clear_scene):
 			#print(f"translation: {translation}")
 			
 			if partIdx == 39:
-				translation[0] -= 0x7AE/0x7FFF
+				translation[0] -= -0x7AE/0x7FFF
 			elif partIdx == 40:
-				translation[0] += 0x7AE/0x7FFF
+				translation[0] += -0x7AE/0x7FFF
 			
 			unknown = f.read(12)
 			
@@ -523,3 +523,4 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
+
