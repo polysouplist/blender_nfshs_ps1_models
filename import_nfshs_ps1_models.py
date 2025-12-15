@@ -6,7 +6,6 @@
 
 ## TO DO
 """
-- Import traffic vehicles
 """
 
 
@@ -48,7 +47,7 @@ import struct
 from pathlib import Path
 
 
-def main(context, file_path, clear_scene):
+def main(context, file_path, is_traffic, clear_scene):
 	if bpy.ops.object.mode_set.poll():
 		bpy.ops.object.mode_set(mode='OBJECT')
 	
@@ -105,15 +104,16 @@ def main(context, file_path, clear_scene):
 			if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
 				padding = f.read(0x2)
 			
-			if get_R3DCar_ObjectInfo(partIdx)[1] & 1 != 0:
-				has_some_normal_data = True
-				for i in range (numVertex):
-					Nvertex = struct.unpack('<hhh', f.read(6))
-					Nvertex = [-Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
-					normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
-					#print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
-				if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
-					padding = f.read(0x2)
+			if is_traffic == False:
+				if get_R3DCar_ObjectInfo(partIdx)[1] & 1 != 0:
+					has_some_normal_data = True
+					for i in range (numVertex):
+						Nvertex = struct.unpack('<hhh', f.read(6))
+						Nvertex = [-Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
+						normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
+						#print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
+					if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
+						padding = f.read(0x2)
 			
 			for i in range(numFacet):
 				flag = struct.unpack('<h', f.read(2))[0]
@@ -400,6 +400,12 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 	# List of operator properties, the attributes will be assigned
 	# to the class instance from the operator settings before calling.
 	
+	is_traffic: BoolProperty(
+			name="Is traffic",
+			description="Check if the importing vehicle is a traffic",
+			default=False,
+			)
+	
 	clear_scene: BoolProperty(
 			name="Clear scene",
 			description="Check in order to clear the scene",
@@ -417,7 +423,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 			print("Importing %d files" % len(files_path))
 			
 			for file_path in files_path:
-				status = main(context, file_path, self.clear_scene)
+				status = main(context, file_path, self.is_traffic, self.clear_scene)
 				
 				if status == {"CANCELLED"}:
 					self.report({"ERROR"}, "Importing of file %s has been cancelled. Check the system console for information." % os.path.splitext(os.path.basename(file_path))[0])
@@ -436,7 +442,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 				print("Importing %d files" % len(files_path))
 			
 			for file_path in files_path:
-				status = main(context, file_path, self.clear_scene)
+				status = main(context, file_path, self.is_traffic, self.clear_scene)
 				
 				if status == {"CANCELLED"}:
 					self.report({"ERROR"}, "Importing of file %s has been cancelled. Check the system console for information." % os.path.splitext(os.path.basename(file_path))[0])
@@ -447,7 +453,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 		else:
 			os.system('cls')
 			
-			status = main(context, self.filepath, self.clear_scene)
+			status = main(context, self.filepath, self.is_traffic, self.clear_scene)
 			
 			if status == {"CANCELLED"}:
 				self.report({"ERROR"}, "Importing has been cancelled. Check the system console for information.")
@@ -461,6 +467,14 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 		
 		sfile = context.space_data
 		operator = sfile.active_operator
+		
+		##
+		box = layout.box()
+		split = box.split(factor=0.75)
+		col = split.column(align=True)
+		col.label(text="Settings", icon="SETTINGS")
+		
+		box.prop(operator, "is_traffic")
 		
 		##
 		box = layout.box()
