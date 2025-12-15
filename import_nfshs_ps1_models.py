@@ -14,7 +14,7 @@ bl_info = {
     "name": "Import Need for Speed High Stakes 1999 PS1 models format (.geo)",
     "description": "Import meshes files from Need for Speed High Stakes 1999 PS1",
     "author": "PolySoupList",
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "blender": (3, 6, 23),
     "location": "File > Import > Need for Speed High Stakes 1999 PS1 (.geo)",
     "warning": "",
@@ -55,20 +55,9 @@ def main(context, file_path):
 	print("Importing file %s" % os.path.basename(file_path))
 	
 	with open(file_path, 'rb') as f:
-		f.seek(0x24C) #Trying to get first numVertex.
-		numVertex_test = struct.unpack('<H', f.read(2))[0]
-		offset = 0x24C
-		if numVertex_test == 0: #Trying different header size.
-			f.seek(0x284)
-			offset = 0x284
-			numVertex_test = struct.unpack('<H', f.read(2))[0]
-			if numVertex_test == 0:
-				print(f"ERROR: Can't find numVertex.")
-				return -1
-			
-		f.seek(offset)
+		f.seek(0x24C)
 		
-		for partIdx in range(57): #57
+		for partIdx in range(57):
 			vertices = []
 			normal_data = []
 			faces = []
@@ -79,121 +68,120 @@ def main(context, file_path):
 			has_some_normal_data = False
 			
 			geoPartName = get_geoPartNames(partIdx)
-			print(f"name: {geoPartName}")
+			#print(f"name: {geoPartName}")
 			
 			numVertex = struct.unpack('<H', f.read(2))[0]
-			print(f"numVertex: {numVertex}")
+			#print(f"numVertex: {numVertex}")
 			
 			numFacet = struct.unpack('<H', f.read(2))[0]
-			print(f"numFacet: {numFacet}")
+			#print(f"numFacet: {numFacet}")
 			
 			translation = struct.unpack('<iii', f.read(12))
 			translation = [translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
-			print(f"translation: {translation}")
+			#print(f"translation: {translation}")
 			
 			if partIdx == 39:
 				translation[0] -= 0x7AE/0x7FFF
 			elif partIdx == 40:
 				translation[0] += 0x7AE/0x7FFF
 			
-			padding = f.read(12)
+			unknown = f.read(12)
 			
-			if numVertex > 0:
+			for i in range (numVertex):
+				vertex = struct.unpack('<hhh', f.read(6))
+				vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
+				vertices.append ((vertex[0], vertex[1], vertex[2]))
+				#print(f"vertex: {vertex[0], vertex[1], vertex[2]}")
+			if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
+				padding = f.read(0x2)
+			
+			if get_R3DCar_ObjectInfo(partIdx)[1] & 1 != 0:
+				has_some_normal_data = True
 				for i in range (numVertex):
-					vertex = struct.unpack('<hhh', f.read(6))
-					vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
-					vertices.append ((vertex[0], vertex[1], vertex[2]))
-					print(f"vertex: {vertex[0], vertex[1], vertex[2]}")
+					Nvertex = struct.unpack('<hhh', f.read(6))
+					Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
+					normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
+					#print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
 				if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
-					f.read(0x2)
+					padding = f.read(0x2)
 			
-				if get_R3DCar_ObjectInfo(partIdx)[1] & 1 != 0:
-					has_some_normal_data = True
-					for i in range (numVertex):
-						Nvertex = struct.unpack('<hhh', f.read(6))
-						Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
-						normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
-						print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
-					if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
-						f.read(0x2)
+			for i in range(numFacet):
+				flag = struct.unpack('<h', f.read(2))[0]
+				#print(f"flag: {flag}")
+				textureIndex = struct.unpack('<B', f.read(1))[0]
+				#print(f"textureIndex: {textureIndex}")
+				vertexId0 = struct.unpack('<B', f.read(1))[0]
+				vertexId1 = struct.unpack('<B', f.read(1))[0]
+				vertexId2 = struct.unpack('<B', f.read(1))[0]
+				#print(f"face: {vertexId0, vertexId1, vertexId2}")
+				uv0 = struct.unpack('<BB', f.read(2))
+				uv0 = [uv0[0]/0xFF, uv0[1]/0xFF]
+				uv1 = struct.unpack('<BB', f.read(2))
+				uv1 = [uv1[0]/0xFF, uv1[1]/0xFF]
+				uv2 = struct.unpack('<BB', f.read(2))
+				uv2 = [uv2[0]/0xFF, uv2[1]/0xFF]
+				#print(f"uv: {uv0, uv1, uv2}")
 			
-			if numFacet > 0:
-				for i in range(numFacet):
-					flag = struct.unpack('<h', f.read(2))[0]
-					print(f"flag: {flag}")
-					textureIndex = struct.unpack('<B', f.read(1))[0]
-					print(f"textureIndex: {textureIndex}")
-					vertexId0 = struct.unpack('<B', f.read(1))[0]
-					vertexId1 = struct.unpack('<B', f.read(1))[0]
-					vertexId2 = struct.unpack('<B', f.read(1))[0]
-					print(f"face: {vertexId0, vertexId1, vertexId2}")
-					uv0 = struct.unpack('<BB', f.read(2))
-					uv0 = [uv0[0]/0xFF, uv0[1]/0xFF]
-					uv1 = struct.unpack('<BB', f.read(2))
-					uv1 = [uv1[0]/0xFF, uv1[1]/0xFF]
-					uv2 = struct.unpack('<BB', f.read(2))
-					uv2 = [uv2[0]/0xFF, uv2[1]/0xFF]
-					print(f"uv: {uv0, uv1, uv2}")
-			
-					faces.append((vertexId0, vertexId1, vertexId2))
-					loop_uvs.extend([uv0, uv1, uv2])
+				faces.append((vertexId0, vertexId1, vertexId2))
+				loop_uvs.extend([uv0, uv1, uv2])
 				face_material_indices.append(textureIndex)
 				used_texture_ids.add(textureIndex)
-			
-			#==================================================================================================
-			#Building Mesh
-			#==================================================================================================
-			me_ob = bpy.data.meshes.new(geoPartName)
-			#obj = bpy.data.objects.new(geoPartName, me_ob)
-			me_ob.from_pydata(vertices, [], faces)
-			
-			if has_some_normal_data:
-				me_ob.validate(clean_customdata=False)
-				me_ob.normals_split_custom_set_from_vertices(normal_data)
-				me_ob.use_auto_smooth = True
-			else:
-				me_ob.calc_normals()
-			
-			if loop_uvs:
-				uv_layer = me_ob.uv_layers.new(name="UVMap")
-				uv_layer.data.foreach_set("uv", [coord for uv in loop_uvs for coord in uv])
-			
-			# ------------------- Create Materials -------------------
-			sorted_tex_ids = sorted(used_texture_ids)
-			tex_id_to_mat_index = {tex_id: idx for idx, tex_id in enumerate(sorted_tex_ids)}
-			
-			for tex_id in sorted_tex_ids:
-				mat_name = f"{tex_id}"
-				mat = bpy.data.materials.new(name=mat_name)
-				mat.use_nodes = True
-			
-			bsdf = mat.node_tree.nodes["Principled BSDF"]
-			bsdf.inputs[0].default_value = (
-				(tex_id * 17 % 23) / 23,
-				(tex_id * 31 % 29) / 29,
-				(tex_id * 47 % 37) / 37,
-				1.0
-			)
-			
-			me_ob.materials.append(mat)
-			
-			for face_idx, tex_id in enumerate(face_material_indices):
-				blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
-				me_ob.polygons[face_idx].material_index = blender_mat_index
-			
-			obj = bpy.data.objects.new(geoPartName, me_ob)
-			
-			# Link to scene
-			bpy.context.collection.objects.link(obj)
-			bpy.context.view_layer.objects.active = obj
-			
-			empty = bpy.data.objects.new(name="Empty", object_data=None)
-			bpy.context.collection.objects.link(empty)
-			
-			empty.location = (translation)
-			empty.rotation_euler = (math.radians(90), 0, 0)
-			
-			obj.parent = empty
+				
+			if numVertex > 0:
+				#==================================================================================================
+				#Building Mesh
+				#==================================================================================================
+				me_ob = bpy.data.meshes.new(geoPartName)
+				#obj = bpy.data.objects.new(geoPartName, me_ob)
+				me_ob.from_pydata(vertices, [], faces)
+				
+				if has_some_normal_data:
+					me_ob.validate(clean_customdata=False)
+					me_ob.normals_split_custom_set_from_vertices(normal_data)
+					me_ob.use_auto_smooth = True
+				else:
+					me_ob.calc_normals()
+				
+				if loop_uvs:
+					uv_layer = me_ob.uv_layers.new(name="UVMap")
+					uv_layer.data.foreach_set("uv", [coord for uv in loop_uvs for coord in uv])
+				
+				# ------------------- Create Materials -------------------
+				sorted_tex_ids = sorted(used_texture_ids)
+				tex_id_to_mat_index = {tex_id: idx for idx, tex_id in enumerate(sorted_tex_ids)}
+				
+				for tex_id in sorted_tex_ids:
+					mat_name = f"{tex_id}"
+					mat = bpy.data.materials.new(name=mat_name)
+					mat.use_nodes = True
+				
+				bsdf = mat.node_tree.nodes["Principled BSDF"]
+				bsdf.inputs[0].default_value = (
+					(tex_id * 17 % 23) / 23,
+					(tex_id * 31 % 29) / 29,
+					(tex_id * 47 % 37) / 37,
+					1.0
+				)
+				
+				me_ob.materials.append(mat)
+				
+				for face_idx, tex_id in enumerate(face_material_indices):
+					blender_mat_index = tex_id_to_mat_index.get(tex_id, 0)
+					me_ob.polygons[face_idx].material_index = blender_mat_index
+				
+				obj = bpy.data.objects.new(geoPartName, me_ob)
+				
+				# Link to scene
+				bpy.context.collection.objects.link(obj)
+				bpy.context.view_layer.objects.active = obj
+				
+				empty = bpy.data.objects.new(name="Empty", object_data=None)
+				bpy.context.collection.objects.link(empty)
+				
+				empty.location = (translation)
+				empty.rotation_euler = (math.radians(90), 0, 0)
+				
+				obj.parent = empty
 	
 	print("Finished")
 	elapsed_time = time.time() - start_time
