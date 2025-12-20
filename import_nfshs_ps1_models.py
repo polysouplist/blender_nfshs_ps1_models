@@ -53,8 +53,8 @@ def main(context, file_path, is_traffic, clear_scene):
 	print("Importing file %s" % os.path.basename(file_path))
 	
 	with open(file_path, 'rb') as f:
-		unk0 = struct.unpack('<57I', f.read(0xE4))
-		main_collection["unk0"] = [int_to_id(i) for i in unk0]
+		header_unk0 = struct.unpack('<57I', f.read(0xE4))
+		main_collection["header_unk0"] = [int_to_id(i) for i in header_unk0]
 		
 		f.read(0x168)
 		
@@ -86,7 +86,7 @@ def main(context, file_path, is_traffic, clear_scene):
 			elif partIdx == 40:
 				translation[0] += 0x7AE/0x7FFF
 			
-			unknown = f.read(0xC)
+			object_unk0 = struct.unpack('<3I', f.read(0xC))
 			
 			for i in range (numVertex):
 				vertex = struct.unpack('<3h', f.read(0x6))
@@ -136,6 +136,8 @@ def main(context, file_path, is_traffic, clear_scene):
 				me_ob = bpy.data.meshes.new(geoPartName)
 				obj = bpy.data.objects.new(geoPartName, me_ob)
 				me_ob.from_pydata(vertices, [], faces)
+				
+				obj["object_unk0"] = [int_to_id(i) for i in object_unk0]
 				
 				values = [True] * len(me_ob.polygons)
 				me_ob.polygons.foreach_set("use_smooth", values)
