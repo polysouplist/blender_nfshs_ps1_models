@@ -53,7 +53,10 @@ def main(context, file_path, is_traffic, clear_scene):
 	print("Importing file %s" % os.path.basename(file_path))
 	
 	with open(file_path, 'rb') as f:
-		f.seek(0x24C)
+		unk0 = struct.unpack('<57I', f.read(0xE4))
+		main_collection["unk0"] = [int_to_id(i) for i in unk0]
+		
+		f.read(0x168)
 		
 		for partIdx in range(57):
 			vertices = []
@@ -68,13 +71,13 @@ def main(context, file_path, is_traffic, clear_scene):
 			geoPartName = get_geoPartNames(partIdx)
 			#print(f"name: {geoPartName}")
 			
-			numVertex = struct.unpack('<H', f.read(2))[0]
+			numVertex = struct.unpack('<H', f.read(0x2))[0]
 			#print(f"numVertex: {numVertex}")
 			
-			numFacet = struct.unpack('<H', f.read(2))[0]
+			numFacet = struct.unpack('<H', f.read(0x2))[0]
 			#print(f"numFacet: {numFacet}")
 			
-			translation = struct.unpack('<iii', f.read(12))
+			translation = struct.unpack('<3i', f.read(0xC))
 			translation = [translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
 			#print(f"translation: {translation}")
 			
@@ -83,10 +86,10 @@ def main(context, file_path, is_traffic, clear_scene):
 			elif partIdx == 40:
 				translation[0] += 0x7AE/0x7FFF
 			
-			unknown = f.read(12)
+			unknown = f.read(0xC)
 			
 			for i in range (numVertex):
-				vertex = struct.unpack('<hhh', f.read(6))
+				vertex = struct.unpack('<3h', f.read(0x6))
 				vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
 				vertices.append ((vertex[0], vertex[1], vertex[2]))
 				#print(f"vertex: {vertex[0], vertex[1], vertex[2]}")
@@ -97,7 +100,7 @@ def main(context, file_path, is_traffic, clear_scene):
 				if get_R3DCar_ObjectInfo(partIdx)[1] & 1 != 0:
 					has_some_normal_data = True
 					for i in range (numVertex):
-						Nvertex = struct.unpack('<hhh', f.read(6))
+						Nvertex = struct.unpack('<3h', f.read(0x6))
 						Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
 						normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
 						#print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
@@ -105,19 +108,19 @@ def main(context, file_path, is_traffic, clear_scene):
 						padding = f.read(0x2)
 			
 			for i in range(numFacet):
-				flag = struct.unpack('<h', f.read(2))[0]
+				flag = struct.unpack('<h', f.read(0x2))[0]
 				#print(f"flag: {flag}")
-				textureIndex = struct.unpack('<B', f.read(1))[0]
+				textureIndex = struct.unpack('<B', f.read(0x1))[0]
 				#print(f"textureIndex: {textureIndex}")
-				vertexId0 = struct.unpack('<B', f.read(1))[0]
-				vertexId1 = struct.unpack('<B', f.read(1))[0]
-				vertexId2 = struct.unpack('<B', f.read(1))[0]
+				vertexId0 = struct.unpack('<B', f.read(0x1))[0]
+				vertexId1 = struct.unpack('<B', f.read(0x1))[0]
+				vertexId2 = struct.unpack('<B', f.read(0x1))[0]
 				#print(f"face: {vertexId0, vertexId1, vertexId2}")
-				uv0 = struct.unpack('<BB', f.read(2))
+				uv0 = struct.unpack('<2B', f.read(0x2))
 				uv0 = [uv0[0]/0xFF, 1.0 - uv0[1]/0xFF]
-				uv1 = struct.unpack('<BB', f.read(2))
+				uv1 = struct.unpack('<2B', f.read(0x2))
 				uv1 = [uv1[0]/0xFF, 1.0 - uv1[1]/0xFF]
-				uv2 = struct.unpack('<BB', f.read(2))
+				uv2 = struct.unpack('<2B', f.read(0x2))
 				uv2 = [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]
 				#print(f"uv: {uv0, uv1, uv2}")
 				
@@ -308,6 +311,12 @@ def get_geoPartNames(partIdx):
                     56: "Rear Left Wheel"}
     
     return geoPartNames[partIdx]
+
+
+def int_to_id(id):
+	id = str(hex(int(id)))[2:].upper().zfill(8)
+	id = '_'.join([id[::-1][x : x+2][::-1] for x in range(0, len(id), 2)])
+	return id
 
 
 def clearScene(context): # OK
