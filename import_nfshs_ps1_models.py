@@ -28,9 +28,12 @@ from bpy.props import (
 )
 from bpy_extras.io_utils import (
 	ImportHelper,
+	orientation_helper,
+	axis_conversion,
 )
 import bmesh
 import math
+from mathutils import Matrix
 import os
 import time
 import struct
