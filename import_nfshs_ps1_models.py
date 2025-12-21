@@ -60,26 +60,21 @@ def main(context, file_path, is_traffic, clear_scene):
 		
 		for partIdx in range(57):
 			vertices = []
-			normal_data = []
+			normals = []
 			faces = []
 			loop_uvs = []
 			face_material_indices = []
+			flags = []
 			used_texture_ids = set()
 			
-			has_some_normal_data = False
-			
 			geoPartName = get_geoPartNames(partIdx)
-			#print(f"name: {geoPartName}")
 			
 			numVertex = struct.unpack('<H', f.read(0x2))[0]
-			#print(f"numVertex: {numVertex}")
 			
 			numFacet = struct.unpack('<H', f.read(0x2))[0]
-			#print(f"numFacet: {numFacet}")
 			
 			translation = struct.unpack('<3i', f.read(0xC))
 			translation = [translation[0]/0x7FFF, -translation[2]/0x7FFF, translation[1]/0x7FFF]
-			#print(f"translation: {translation}")
 			
 			if partIdx == 39:
 				translation[0] -= 0x7AE/0x7FFF
@@ -92,42 +87,36 @@ def main(context, file_path, is_traffic, clear_scene):
 				vertex = struct.unpack('<3h', f.read(0x6))
 				vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
 				vertices.append ((vertex[0], vertex[1], vertex[2]))
-				#print(f"vertex: {vertex[0], vertex[1], vertex[2]}")
 			if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
 				padding = f.read(0x2)
 			
 			if is_traffic == False:
 				if get_R3DCar_ObjectInfo(partIdx)[1] & 1 != 0:
-					has_some_normal_data = True
 					for i in range (numVertex):
 						Nvertex = struct.unpack('<3h', f.read(0x6))
 						Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
-						normal_data.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
-						#print(f"Nvertex: {Nvertex[0], Nvertex[1], Nvertex[2]}")
+						normals.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
 					if numVertex % 2 == 1: #Data offset after positions, happens when numVertex is odd.
 						padding = f.read(0x2)
 			
 			for i in range(numFacet):
 				flag = struct.unpack('<h', f.read(0x2))[0]
-				#print(f"flag: {flag}")
 				textureIndex = struct.unpack('<B', f.read(0x1))[0]
-				#print(f"textureIndex: {textureIndex}")
 				vertexId0 = struct.unpack('<B', f.read(0x1))[0]
 				vertexId1 = struct.unpack('<B', f.read(0x1))[0]
 				vertexId2 = struct.unpack('<B', f.read(0x1))[0]
-				#print(f"face: {vertexId0, vertexId1, vertexId2}")
 				uv0 = struct.unpack('<2B', f.read(0x2))
 				uv0 = [uv0[0]/0xFF, 1.0 - uv0[1]/0xFF]
 				uv1 = struct.unpack('<2B', f.read(0x2))
 				uv1 = [uv1[0]/0xFF, 1.0 - uv1[1]/0xFF]
 				uv2 = struct.unpack('<2B', f.read(0x2))
 				uv2 = [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]
-				#print(f"uv: {uv0, uv1, uv2}")
 				
 				faces.append((vertexId0, vertexId1, vertexId2))
 				loop_uvs.extend([uv0, uv1, uv2])
 				face_material_indices.append(textureIndex)
 				used_texture_ids.add(textureIndex)
+				flags.append(flag)
 				
 			if numVertex > 0:
 				#==================================================================================================
@@ -135,21 +124,62 @@ def main(context, file_path, is_traffic, clear_scene):
 				#==================================================================================================
 				me_ob = bpy.data.meshes.new(geoPartName)
 				obj = bpy.data.objects.new(geoPartName, me_ob)
-				me_ob.from_pydata(vertices, [], faces)
 				
-				obj["object_unk0"] = [int_to_id(i) for i in object_unk0]
+				#Get a BMesh representation
+				bm = bmesh.new()
 				
-				values = [True] * len(me_ob.polygons)
-				me_ob.polygons.foreach_set("use_smooth", values)
+				#Creating new properties
+				flag = (bm.faces.layers.int.get("flag") or bm.faces.layers.int.new('flag'))
+				
+				BMVert_dictionary = {}
+				
+				normal_data = []
+				has_some_normal_data = False
+				
+				for i, position in enumerate(vertices):
+					BMVert = bm.verts.new(position)
+					BMVert.index = i
+					BMVert_dictionary[i] = [BMVert]
+					
+					if normals:
+						normal = normals[i]
+						BMVert.normal = normals[i]
+						normal_data.append([i, normal])
+						if has_some_normal_data == False:
+							me_ob.create_normals_split()
+						has_some_normal_data = True
+				
+				for i, face in enumerate(faces):
+					face_vertices = (BMVert_dictionary[face[0]][0], BMVert_dictionary[face[1]][0], BMVert_dictionary[face[2]][0])
+					try:
+						BMFace = bm.faces.get(face_vertices) or bm.faces.new(face_vertices)
+					except:
+						pass
+					if BMFace.index != -1:
+						BMFace = BMFace.copy(verts=False, edges=False)
+					BMFace.index = i
+					BMFace.smooth = True
+					BMFace[flag] = flags[i]
+					
+				
+				#Finish up, write the bmesh back to the mesh
+				bm.to_mesh(me_ob)
+				bm.free()
 				
 				if has_some_normal_data:
-					me_ob.normals_split_custom_set_from_vertices(normal_data)
+					temp = []
+					for data in normal_data:
+						temp.append(data[1])
+					normal_data = temp[:]
+					
+					me_ob.normals_split_custom_set_from_vertices( normal_data )
 					me_ob.use_auto_smooth = True
 				else:
 					me_ob.calc_normals()
 				
 				if loop_uvs:
-					uv_layer = me_ob.uv_layers.new(name="UVMap")
+					uvName = "UVMap" #or UV1Map
+					uv_layer = me_ob.uv_layers.new(name=uvName)
 					uv_layer.data.foreach_set("uv", [coord for uv in loop_uvs for coord in uv])
 				
 				# ------------------- Create Materials -------------------
@@ -180,6 +210,7 @@ def main(context, file_path, is_traffic, clear_scene):
 						me_ob.polygons[face_idx].material_index = blender_mat_index
 				
 				# Link to scene
+				obj["object_unk0"] = [int_to_id(i) for i in object_unk0]
 				main_collection.objects.link(obj)
 				bpy.context.view_layer.objects.active = obj
 				obj.location = (translation)
@@ -523,4 +554,5 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
+
 
