@@ -7,7 +7,7 @@ bl_info = {
     "name": "Import Need for Speed High Stakes (1999) PS1 models format (.geo)",
     "description": "Import meshes files from Need for Speed High Stakes (1999) PS1",
     "author": "PolySoupList",
-    "version": (0, 0, 4),
+    "version": (0, 0, 5),
     "blender": (3, 6, 23),
     "location": "File > Import > Need for Speed High Stakes (1999) PS1 (.geo)",
     "warning": "",
@@ -554,5 +554,3 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
-
-
