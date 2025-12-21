@@ -415,6 +415,7 @@ def clearScene(context): # OK
 			bpy.data.collections.remove(block, do_unlink=True)
 
 
+@orientation_helper(axis_forward='-Y', axis_up='Z')
 class ImportNFSHSPS1(Operator, ImportHelper):
 	"""Load a Need for Speed High Stakes (1999) PS1 model file"""
 	bl_idname = "import_nfshsps1.data"  # important since its how bpy.ops.import_test.some_data is constructed
@@ -454,7 +455,9 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 			default=True,
 			)
 	
-	def execute(self, context): # OK		
+	def execute(self, context): # OK
+		global_matrix = axis_conversion(from_forward='Z', from_up='Y', to_forward=self.axis_forward, to_up=self.axis_up).to_4x4()
+		
 		if len(self.files) > 1:
 			os.system('cls')
 		
@@ -473,7 +476,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 			print()
 			
 			for file_path in files_path:
-				status = main(context, file_path, self.is_traffic, self.clear_scene)
+				status = main(context, file_path, self.is_traffic, self.clear_scene, global_matrix)
 				
 				if status == {"CANCELLED"}:
 					self.report({"ERROR"}, "Importing of file %s has been cancelled. Check the system console for information." % os.path.splitext(os.path.basename(file_path))[0])
@@ -492,7 +495,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 				print("Importing %d files" % len(files_path))
 			
 			for file_path in files_path:
-				status = main(context, file_path, self.is_traffic, self.clear_scene)
+				status = main(context, file_path, self.is_traffic, self.clear_scene, global_matrix)
 				
 				if status == {"CANCELLED"}:
 					self.report({"ERROR"}, "Importing of file %s has been cancelled. Check the system console for information." % os.path.splitext(os.path.basename(file_path))[0])
@@ -503,7 +506,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 		else:
 			os.system('cls')
 			
-			status = main(context, self.filepath, self.is_traffic, self.clear_scene)
+			status = main(context, self.filepath, self.is_traffic, self.clear_scene, global_matrix)
 			
 			if status == {"CANCELLED"}:
 				self.report({"ERROR"}, "Importing has been cancelled. Check the system console for information.")
@@ -533,9 +536,35 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 		col.label(text="Preferences", icon="OPTIONS")
 		
 		box.prop(operator, "clear_scene")
+		
+		##
+		box = layout.box()
+		split = box.split(factor=0.75)
+		col = split.column(align=True)
+		col.label(text="Blender orientation", icon="OBJECT_DATA")
+		
+		row = box.row(align=True)
+		row.label(text="Forward axis")
+		row.use_property_split = False
+		row.prop_enum(operator, "axis_forward", 'X', text='X')
+		row.prop_enum(operator, "axis_forward", 'Y', text='Y')
+		row.prop_enum(operator, "axis_forward", 'Z', text='Z')
+		row.prop_enum(operator, "axis_forward", '-X', text='-X')
+		row.prop_enum(operator, "axis_forward", '-Y', text='-Y')
+		row.prop_enum(operator, "axis_forward", '-Z', text='-Z')
+		
+		row = box.row(align=True)
+		row.label(text="Up axis")
+		row.use_property_split = False
+		row.prop_enum(operator, "axis_up", 'X', text='X')
+		row.prop_enum(operator, "axis_up", 'Y', text='Y')
+		row.prop_enum(operator, "axis_up", 'Z', text='Z')
+		row.prop_enum(operator, "axis_up", '-X', text='-X')
+		row.prop_enum(operator, "axis_up", '-Y', text='-Y')
+		row.prop_enum(operator, "axis_up", '-Z', text='-Z')
 
 
-def menu_func_import(self, context):
+def menu_func_import(self, context): # OK
 	pcoll = preview_collections["main"]
 	my_icon = pcoll["my_icon"]
 	self.layout.operator(ImportNFSHSPS1.bl_idname, text="Need for Speed High Stakes (1999) PS1 (.geo)", icon_value=my_icon.icon_id)
@@ -547,7 +576,7 @@ classes = (
 
 preview_collections = {}
 
-def register():
+def register(): # OK
 	import bpy.utils.previews
 	pcoll = bpy.utils.previews.new()
 	
@@ -561,7 +590,7 @@ def register():
 	bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
-def unregister():
+def unregister(): # OK
 	for pcoll in preview_collections.values():
 		bpy.utils.previews.remove(pcoll)
 	preview_collections.clear()
