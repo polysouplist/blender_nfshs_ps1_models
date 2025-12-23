@@ -61,10 +61,9 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 	
 	print("Importing file %s" % os.path.basename(file_path))
 	
-	with open(file_path, 'rb') as f:
+	with open(file_path, "rb") as f:
 		header_unk0 = struct.unpack('<57I', f.read(0xE4))
 		main_collection["header_unk0"] = [int_to_id(i) for i in header_unk0]
-		
 		f.read(0x168)
 		
 		for index in range(57):
@@ -597,3 +596,4 @@ def unregister(): # OK
 
 if __name__ == "__main__":
 	register()
+
