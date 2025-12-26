@@ -3,11 +3,12 @@
 # Blender Need for Speed High Stakes (1999) PS1 importer Add-on
 # Add-on developed by PolySoupList
 
+
 bl_info = {
     "name": "Import Need for Speed High Stakes (1999) PS1 models format (.geo)",
     "description": "Import meshes files from Need for Speed High Stakes (1999) PS1",
     "author": "PolySoupList",
-    "version": (0, 0, 7),
+    "version": (1, 0, 0),
     "blender": (3, 6, 23),
     "location": "File > Import > Need for Speed High Stakes (1999) PS1 (.geo)",
     "warning": "",
@@ -15,6 +16,7 @@ bl_info = {
     "tracker_url": "",
     "support": "COMMUNITY",
     "category": "Import-Export"}
+
 
 import bpy
 from bpy.types import (
