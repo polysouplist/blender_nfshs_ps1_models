@@ -128,10 +128,17 @@ def main(context, export_path, export_traffic, m):
 					
 					if export_traffic == False:
 						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
+							normals = {}
+							for face in mesh.polygons:
+								for loop_ind in face.loop_indices:
+									vert_index = loops[loop_ind].vertex_index
+									if vert_index not in normals:
+										normals[vert_index] = loops[loop_ind].normal[:]
 							for vert in mesh.vertices:
-								Nvertex = [round(vert.normal[0]*0x7F),
-										   round(vert.normal[1]*0x7F),
-										   round(vert.normal[2]*0x7F)]
+								normal = normals.get(vert.index, (0.0, 0.0, 0.0))
+								Nvertex = [round(normal[0]*0x7F),
+										   round(normal[1]*0x7F),
+										   round(normal[2]*0x7F)]
 								f.write(struct.pack('<3h', *Nvertex))
 							if len(mesh.vertices) % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 								f.write(b'\x00' * 0x2)
