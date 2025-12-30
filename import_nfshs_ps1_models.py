@@ -146,7 +146,7 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 				for i, position in enumerate(vertices):
 					BMVert = bm.verts.new(position)
 					BMVert.index = i
-					BMVert_dictionary[i] = [BMVert]
+					BMVert_dictionary[i] = BMVert
 					
 					if normals:
 						normal = normals[i]
@@ -159,7 +159,7 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 						normal_data.append([i, (0.0, 0.0, 0.0)])
 				
 				for i, face in enumerate(faces):
-					face_vertices = (BMVert_dictionary[face[0]][0], BMVert_dictionary[face[1]][0], BMVert_dictionary[face[2]][0])
+					face_vertices = [BMVert_dictionary[face[0]], BMVert_dictionary[face[1]], BMVert_dictionary[face[2]]]
 					try:
 						BMFace = bm.faces.get(face_vertices) or bm.faces.new(face_vertices)
 					except:
@@ -572,6 +572,7 @@ classes = (
 )
 
 preview_collections = {}
+
 
 def register(): # OK
 	import bpy.utils.previews
