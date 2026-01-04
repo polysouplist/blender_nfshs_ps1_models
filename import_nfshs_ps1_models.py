@@ -5,17 +5,17 @@
 
 
 bl_info = {
-    "name": "Import Need for Speed High Stakes (1999) PS1 models format (.geo)",
-    "description": "Import meshes files from Need for Speed High Stakes (1999) PS1",
-    "author": "PolySoupList",
-    "version": (1, 0, 0),
-    "blender": (3, 6, 23),
-    "location": "File > Import > Need for Speed High Stakes (1999) PS1 (.geo)",
-    "warning": "",
-    "wiki_url": "",
-    "tracker_url": "",
-    "support": "COMMUNITY",
-    "category": "Import-Export"}
+	"name": "Import Need for Speed High Stakes (1999) PS1 models format (.geo)",
+	"description": "Import meshes files from Need for Speed High Stakes (1999) PS1",
+	"author": "PolySoupList",
+	"version": (1, 0, 0),
+	"blender": (3, 6, 23),
+	"location": "File > Import > Need for Speed High Stakes (1999) PS1 (.geo)",
+	"warning": "",
+	"wiki_url": "",
+	"tracker_url": "",
+	"support": "COMMUNITY",
+	"category": "Import-Export"}
 
 
 import bpy
@@ -82,18 +82,18 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 			numVertex = struct.unpack('<H', f.read(0x2))[0]
 			numFacet = struct.unpack('<H', f.read(0x2))[0]
 			translation = struct.unpack('<3i', f.read(0xC))
-			translation = [translation[0]/0x7FFF, translation[1]/0x7FFF, translation[2]/0x7FFF]
+			translation = [translation[0]/65536, translation[1]/65536, translation[2]/65536]
 			
 			if index == 39:
-				translation[0] -= 0x7AE/0x7FFF
+				translation[0] -= 0x7AE/65536
 			elif index == 40:
-				translation[0] += 0x7AE/0x7FFF
+				translation[0] += 0x7AE/65536
 			
 			object_unk0 = struct.unpack('<3I', f.read(0xC))
 			
 			for i in range (numVertex):
 				vertex = struct.unpack('<3h', f.read(0x6))
-				vertex = [vertex[0]/0x7F, vertex[1]/0x7F, vertex[2]/0x7F]
+				vertex = [vertex[0]/256, vertex[1]/256, vertex[2]/256]
 				vertices.append ((vertex[0], vertex[1], vertex[2]))
 			if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 				padding = f.read(0x2)
@@ -102,11 +102,8 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 				if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
 					for i in range (numVertex):
 						Nvertex = struct.unpack('<3h', f.read(0x6))
-						#normals_short.append(Vector(Nvertex))
-						
 						Nvertex = [Nvertex[0]/4096, Nvertex[1]/4096, Nvertex[2]/4096]
 						normals.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
-						
 					if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 						padding = f.read(0x2)
 			
@@ -242,127 +239,127 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 
 
 def get_R3DCar_ObjectInfo(index):
-    R3DCar_ObjectInfo = {0: [0x00, 0x49, 0x00, 0x01, 0x00, 0x00],
-                         1: [0x00, 0x00, 0x00, 0x00, 0x01, 0x00],
-                         2: [0x20, 0x02, 0x01, 0x01, 0x00, 0x00],
-                         3: [0x30, 0x00, 0x01, 0x01, 0x00, 0x00],
-                         4: [0xF8, 0x00, 0x00, 0x00, 0x01, 0x00],
-                         5: [0xF0, 0x08, 0x0A, 0x0A, 0x00, 0x00],
-                         6: [0xE0, 0x00, 0x0C, 0x00, 0x00, 0x00],
-                         7: [0xE0, 0x00, 0x00, 0x0C, 0x00, 0x00],
-                         8: [0xEC, 0x89, 0x0B, 0x0B, 0x00, 0x0B],
-                         9: [0xF0, 0x88, 0x0B, 0x0B, 0x00, 0x0B],
-                         10: [0xEC, 0x89, 0x0C, 0x0C, 0x00, 0x0C],
-                         11: [0xF0, 0x88, 0x0C, 0x0C, 0x00, 0x0C],
-                         12: [0xE8, 0x00, 0x01, 0x00, 0x00, 0x00],
-                         13: [0xE8, 0x00, 0x00, 0x01, 0x00, 0x00],
-                         14: [0xD4, 0x00, 0x11, 0x00, 0x00, 0x00],
-                         15: [0xD4, 0x00, 0x11, 0x00, 0x00, 0x00],
-                         16: [0xE1, 0x08, 0x01, 0x00, 0x00, 0x00],
-                         17: [0xE1, 0x08, 0x00, 0x01, 0x00, 0x00],
-                         18: [0xD4, 0x00, 0x12, 0x12, 0x12, 0x00],
-                         19: [0xE2, 0x00, 0x01, 0x00, 0x00, 0x00],
-                         20: [0xE2, 0x00, 0x00, 0x01, 0x00, 0x00],
-                         21: [0xD4, 0x00, 0x13, 0x13, 0x13, 0x00],
-                         22: [0xE2, 0x18, 0x0F, 0x10, 0x00, 0x00],
-                         23: [0xE2, 0x08, 0x00, 0x01, 0x00, 0x00],
-                         24: [0xD4, 0x10, 0x14, 0x14, 0x14, 0x00],
-                         25: [0xE2, 0x18, 0x0F, 0x10, 0x00, 0x00],
-                         26: [0xE2, 0x08, 0x00, 0x01, 0x00, 0x00],
-                         27: [0xD4, 0x10, 0x15, 0x15, 0x15, 0x00],
-                         28: [0xE8, 0x08, 0x01, 0x00, 0x00, 0x00],
-                         29: [0xE8, 0x08, 0x00, 0x01, 0x00, 0x00],
-                         30: [0xD4, 0x00, 0x16, 0x16, 0x16, 0x00],
-                         31: [0xD8, 0x00, 0x01, 0x01, 0x00, 0x00],
-                         32: [0xF4, 0x00, 0x0D, 0x00, 0x00, 0x00],
-                         33: [0xF4, 0x00, 0x0E, 0x00, 0x00, 0x00],
-                         34: [0xD4, 0x00, 0x11, 0x00, 0x00, 0x00],
-                         35: [0x30, 0x00, 0x02, 0x01, 0x00, 0x00],
-                         36: [0x28, 0x02, 0x03, 0x00, 0x00, 0x03],
-                         37: [0x28, 0x02, 0x03, 0x00, 0x00, 0x03],
-                         38: [0x26, 0x02, 0x04, 0x00, 0x00, 0x00],
-                         39: [0x24, 0x02, 0x04, 0x00, 0x00, 0x04],
-                         40: [0x24, 0x02, 0x04, 0x00, 0x00, 0x04],
-                         41: [0x00, 0x49, 0x01, 0x00, 0x00, 0x01],
-                         42: [0x00, 0x49, 0x01, 0x00, 0x00, 0x01],
-                         43: [0xF0, 0x80, 0x05, 0x00, 0x00, 0x05],
-                         44: [0xF0, 0x80, 0x06, 0x00, 0x00, 0x06],
-                         45: [0xE8, 0x89, 0x07, 0x07, 0x00, 0x07],
-                         46: [0xE8, 0x89, 0x08, 0x08, 0x00, 0x08],
-                         47: [0x1F, 0x00, 0x01, 0x01, 0x00, 0x00],
-                         48: [0x1F, 0x00, 0x01, 0x01, 0x00, 0x00],
-                         49: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
-                         50: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
-                         51: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00],
-                         52: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00],
-                         53: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
-                         54: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
-                         55: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00],
-                         56: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00]}
-    
-    return R3DCar_ObjectInfo[index]
+	R3DCar_ObjectInfo = {0: [0x00, 0x49, 0x00, 0x01, 0x00, 0x00],
+						 1: [0x00, 0x00, 0x00, 0x00, 0x01, 0x00],
+						 2: [0x20, 0x02, 0x01, 0x01, 0x00, 0x00],
+						 3: [0x30, 0x00, 0x01, 0x01, 0x00, 0x00],
+						 4: [0xF8, 0x00, 0x00, 0x00, 0x01, 0x00],
+						 5: [0xF0, 0x08, 0x0A, 0x0A, 0x00, 0x00],
+						 6: [0xE0, 0x00, 0x0C, 0x00, 0x00, 0x00],
+						 7: [0xE0, 0x00, 0x00, 0x0C, 0x00, 0x00],
+						 8: [0xEC, 0x89, 0x0B, 0x0B, 0x00, 0x0B],
+						 9: [0xF0, 0x88, 0x0B, 0x0B, 0x00, 0x0B],
+						 10: [0xEC, 0x89, 0x0C, 0x0C, 0x00, 0x0C],
+						 11: [0xF0, 0x88, 0x0C, 0x0C, 0x00, 0x0C],
+						 12: [0xE8, 0x00, 0x01, 0x00, 0x00, 0x00],
+						 13: [0xE8, 0x00, 0x00, 0x01, 0x00, 0x00],
+						 14: [0xD4, 0x00, 0x11, 0x00, 0x00, 0x00],
+						 15: [0xD4, 0x00, 0x11, 0x00, 0x00, 0x00],
+						 16: [0xE1, 0x08, 0x01, 0x00, 0x00, 0x00],
+						 17: [0xE1, 0x08, 0x00, 0x01, 0x00, 0x00],
+						 18: [0xD4, 0x00, 0x12, 0x12, 0x12, 0x00],
+						 19: [0xE2, 0x00, 0x01, 0x00, 0x00, 0x00],
+						 20: [0xE2, 0x00, 0x00, 0x01, 0x00, 0x00],
+						 21: [0xD4, 0x00, 0x13, 0x13, 0x13, 0x00],
+						 22: [0xE2, 0x18, 0x0F, 0x10, 0x00, 0x00],
+						 23: [0xE2, 0x08, 0x00, 0x01, 0x00, 0x00],
+						 24: [0xD4, 0x10, 0x14, 0x14, 0x14, 0x00],
+						 25: [0xE2, 0x18, 0x0F, 0x10, 0x00, 0x00],
+						 26: [0xE2, 0x08, 0x00, 0x01, 0x00, 0x00],
+						 27: [0xD4, 0x10, 0x15, 0x15, 0x15, 0x00],
+						 28: [0xE8, 0x08, 0x01, 0x00, 0x00, 0x00],
+						 29: [0xE8, 0x08, 0x00, 0x01, 0x00, 0x00],
+						 30: [0xD4, 0x00, 0x16, 0x16, 0x16, 0x00],
+						 31: [0xD8, 0x00, 0x01, 0x01, 0x00, 0x00],
+						 32: [0xF4, 0x00, 0x0D, 0x00, 0x00, 0x00],
+						 33: [0xF4, 0x00, 0x0E, 0x00, 0x00, 0x00],
+						 34: [0xD4, 0x00, 0x11, 0x00, 0x00, 0x00],
+						 35: [0x30, 0x00, 0x02, 0x01, 0x00, 0x00],
+						 36: [0x28, 0x02, 0x03, 0x00, 0x00, 0x03],
+						 37: [0x28, 0x02, 0x03, 0x00, 0x00, 0x03],
+						 38: [0x26, 0x02, 0x04, 0x00, 0x00, 0x00],
+						 39: [0x24, 0x02, 0x04, 0x00, 0x00, 0x04],
+						 40: [0x24, 0x02, 0x04, 0x00, 0x00, 0x04],
+						 41: [0x00, 0x49, 0x01, 0x00, 0x00, 0x01],
+						 42: [0x00, 0x49, 0x01, 0x00, 0x00, 0x01],
+						 43: [0xF0, 0x80, 0x05, 0x00, 0x00, 0x05],
+						 44: [0xF0, 0x80, 0x06, 0x00, 0x00, 0x06],
+						 45: [0xE8, 0x89, 0x07, 0x07, 0x00, 0x07],
+						 46: [0xE8, 0x89, 0x08, 0x08, 0x00, 0x08],
+						 47: [0x1F, 0x00, 0x01, 0x01, 0x00, 0x00],
+						 48: [0x1F, 0x00, 0x01, 0x01, 0x00, 0x00],
+						 49: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
+						 50: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
+						 51: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00],
+						 52: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00],
+						 53: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
+						 54: [0x20, 0x00, 0x01, 0x00, 0x00, 0x00],
+						 55: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00],
+						 56: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00]}
+	
+	return R3DCar_ObjectInfo[index]
 
 
 def get_geoPartNames(index):
-    geoPartNames = {0: "Body Medium",
-                    1: "Body Low",
-                    2: "Body Undertray",
-                    3: "Wheel Wells",
-                    4: "Wheel Squares (unknown LOD)",
-                    5: "Wheel Squares (A little bigger)",
-                    6: "Unknown Invisible??",
-                    7: "Unknown Invisible??",
-                    8: "Spoiler Original",
-                    9: "Spoiler Uprights",
-                    10: "Spoiler Upgraded",
-                    11: "Spoiler Upgraded Uprights ",
-                    12: "Fog Lights and Rear bumper Top",
-                    13: "Fog Lights and Rear bumper TopR",
-                    14: "Wing Mirror Attachment Points",
-                    15: "Wheel Attachment Points",
-                    16: "Brake Light Quads",
-                    17: "Unknown Invisible",
-                    18: "Unknown Rear Light tris",
-                    19: "Rear Inner Light Quads",
-                    20: "Rear Inner Light Quads rotated",
-                    21: "Rear Inner Light Tris",
-                    22: "Front Light quads",
-                    23: "Bigger Front Light quads",
-                    24: "Front Light triangles",
-                    25: "Rear Main Light Quads",
-                    26: "Rear Main Light Quads dup",
-                    27: "Rear Main Light Tris",
-                    28: "Unknown Invisible",
-                    29: "Unknown Invisible",
-                    30: "Front Headlight light Pos",
-                    31: "Logo and Rear Numberplate",
-                    32: "Exhaust Tips",
-                    33: "Low LOD Exhaust Tips",
-                    34: "Mid Body F/R Triangles",
-                    35: "Interior Cutoff + Driver Pos",
-                    36: "Unknown Invisible",
-                    37: "Unknown Invisible",
-                    38: "Unknown Invisible",
-                    39: "Unknown Invisible",
-                    40: "Unknown Invisible",
-                    41: "Right Body High",
-                    42: "Left Body High",
-                    43: "Right Wing Mirror",
-                    44: "Left Wing Mirror",
-                    45: "Front Right Light Bucket",
-                    46: "Front Left Light bBucket",
-                    47: "Front Right Wheel",
-                    48: "Front Left Wheel",
-                    49: "Unknown Invisible",
-                    50: "Unknown Invisible",
-                    51: "Front Right Tire",
-                    52: "Front Left Tire",
-                    53: "Unknown Invisible",
-                    54: "Unknown Invisible",
-                    55: "Rear Right Wheel",
-                    56: "Rear Left Wheel"}
-    
-    return geoPartNames[index]
+	geoPartNames = {0: "Body_Medium",
+					1: "Body_Low",
+					2: "Body_Undertray",
+					3: "Wheel_Wells",
+					4: "Wheel_Squares_(LOW)",
+					5: "Wheel_Shadow",
+					6: "HI_Upgrade_Front_Lip",
+					7: "MID_Upgrade_Front_Lip",
+					8: "Spoiler Original",
+					9: "Spoiler Uprights",
+					10: "Spoiler_Upgraded",
+					11: "Spoiler Upgraded Uprights ",
+					12: "HI_Fog_Lights_and_Rear_bumper",
+					13: "MID_Fog_Lights_and_Rear_bumper",
+					14: "Wing Mirror Attachment Points",
+					15: "Wheel Attachment Points",
+					16: "HI_Brake_Light_Quads",
+					17: "MID_Brake_Light_Quads",
+					18: "Unknown Rear Light tris",
+					19: "Rear Inner Light Quads",
+					20: "Rear Inner Light Quads rotated",
+					21: "Rear Inner Light Tris",
+					22: "HI_Front_Light_quads",
+					23: "MID_Front_Light_quads",
+					24: "Front Light triangles",
+					25: "Rear Main Light Quads",
+					26: "Rear Main Light Quads dup",
+					27: "Rear Main Light Tris",
+					28: "HI_Headlight_Housing",
+					29: "MID_Headlight_Housing",
+					30: "Front Headlight light Pos",
+					31: "Logo_and_Rear_Numberplate",
+					32: "Exhaust_Tips",
+					33: "Upgrade_Exhaust_Tips",
+					34: "Mid Body F/R Triangles",
+					35: "Interior_Cutoff_+_Driver_Pos",
+					36: "Cabin",
+					37: "Steering_Wheel",
+					38: "Driver_Unknown",
+					39: "Driver_Right_Arm",
+					40: "Driver_Left_Arm",
+					41: "Right_Body_High",
+					42: "Left_Body_High",
+					43: "Right_Wing_Mirror",
+					44: "Left_Wing_Mirror",
+					45: "Front Right Light Bucket",
+					46: "Front Left Light bBucket",
+					47: "Front_Right_Wheel",
+					48: "Front_Left_Wheel",
+					49: "HI_Front_Left_Tire",
+					50: "HI_Front_Right_Tire",
+					51: "Front_Right_Tire",
+					52: "Front_Left_Tire",
+					53: "HI_Rear_Left_Tire",
+					54: "HI_Rear_Right_Tire",
+					55: "Rear_Right_Wheel",
+					56: "Rear_Left_Wheel"}
+	#Thanks to rata536 for this list
+	return geoPartNames[index]
 
 
 def int_to_id(id):
