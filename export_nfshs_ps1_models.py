@@ -1,7 +1,7 @@
 #-*- coding:utf-8 -*-
 
 # Blender Need for Speed High Stakes (1999) PS1 exporter Add-on
-# Add-on developed by PolySoupList
+# Add-on developed by PolySoupList with contributions by DGIorio
 
 
 bl_info = {
@@ -372,3 +372,4 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
+
