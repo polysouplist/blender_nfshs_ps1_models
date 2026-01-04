@@ -100,9 +100,9 @@ def main(context, export_path, export_traffic, m):
 					numFacet = len(mesh.polygons)
 					translation = Matrix(np.linalg.inv(m) @ object.matrix_world)
 					translation = translation.to_translation()
-					translation = [round(translation[0]*0x7FFF),
-								   round(translation[1]*0x7FFF),
-								   round(translation[2]*0x7FFF)]
+					translation = [round(translation[0]*65536),
+								   round(translation[1]*65536),
+								   round(translation[2]*65536)]
 					if index == 39:
 						translation[0] += 0x7AE
 					elif index == 40:
@@ -119,16 +119,15 @@ def main(context, export_path, export_traffic, m):
 						f.write(b'\x00' * 0xC)
 					
 					for vert in mesh.vertices:
-						vertex = [round(vert.co[0]*0x7F),
-								  round(vert.co[1]*0x7F),
-								  round(vert.co[2]*0x7F)]
+						vertex = [round(vert.co[0]*256),
+								  round(vert.co[1]*256),
+								  round(vert.co[2]*256)]
 						f.write(struct.pack('<3h', *vertex))
 					if len(mesh.vertices) % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 						f.write(b'\x00' * 0x2)
 					
 					if export_traffic == False:
 						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
-							#print("normals start", hex(f.tell()))
 							normals = {}
 							for face in mesh.polygons:
 								for loop_ind in face.loop_indices:
@@ -372,4 +371,3 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
-
