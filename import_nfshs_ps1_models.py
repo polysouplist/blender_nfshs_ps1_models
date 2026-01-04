@@ -1,7 +1,7 @@
 #-*- coding:utf-8 -*-
 
 # Blender Need for Speed High Stakes (1999) PS1 importer Add-on
-# Add-on developed by PolySoupList
+# Add-on developed by PolySoupList with contributions by DGIorio
 
 
 bl_info = {
@@ -102,8 +102,11 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 				if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
 					for i in range (numVertex):
 						Nvertex = struct.unpack('<3h', f.read(0x6))
-						Nvertex = [Nvertex[0]/0x7F, Nvertex[1]/0x7F, Nvertex[2]/0x7F]
+						#normals_short.append(Vector(Nvertex))
+						
+						Nvertex = [Nvertex[0]/4096, Nvertex[1]/4096, Nvertex[2]/4096]
 						normals.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
+						
 					if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 						padding = f.read(0x2)
 			
