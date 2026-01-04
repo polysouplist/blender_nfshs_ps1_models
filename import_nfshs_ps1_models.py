@@ -339,7 +339,7 @@ def get_geoPartNames(index):
 					35: "Interior_Cutoff_+_Driver_Pos",
 					36: "Cabin",
 					37: "Steering_Wheel",
-					38: "Driver_Unknown",
+					38: "Driver_Body",
 					39: "Driver_Right_Arm",
 					40: "Driver_Left_Arm",
 					41: "Right_Body_High",
@@ -358,7 +358,7 @@ def get_geoPartNames(index):
 					54: "HI_Rear_Right_Tire",
 					55: "Rear_Right_Wheel",
 					56: "Rear_Left_Wheel"}
-	#Thanks to rata536 for this list
+	#Thanks to rata536 and Hypercycle for this list
 	return geoPartNames[index]
 
 
