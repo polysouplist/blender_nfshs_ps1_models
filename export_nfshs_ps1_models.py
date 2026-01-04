@@ -147,8 +147,16 @@ def main(context, export_path, export_traffic, m):
 					flags = mesh.attributes.get("flag")
 						
 					for face in mesh.polygons:
-						flag = flags.data[face.index].value
+						try:
+							flag = flags.data[face.index].value
+						except:
+							flag = 0
+						
 						textureIndex = int(mesh.materials[face.material_index].name)
+						
+						if len(face.vertices) > 3:
+							print("ERROR: non triangular face on mesh %s." % mesh.name)
+							return {"CANCELLED"}
 						vertexId0, vertexId1, vertexId2 = face.vertices
 						
 						loop_start = face.loop_start
