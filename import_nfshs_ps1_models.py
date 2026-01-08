@@ -81,28 +81,32 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 			geoPartName = get_geoPartNames(index)
 			numVertex = struct.unpack('<H', f.read(0x2))[0]
 			numFacet = struct.unpack('<H', f.read(0x2))[0]
+			
+			translation_scale = 65536
 			translation = struct.unpack('<3i', f.read(0xC))
-			translation = [translation[0]/65536, translation[1]/65536, translation[2]/65536]
+			translation = [translation[0]/translation_scale, translation[1]/translation_scale, translation[2]/translation_scale]
 			
 			if index == 39:
-				translation[0] -= 0x7AE/65536
+				translation[0] -= 0x7AE/translation_scale
 			elif index == 40:
-				translation[0] += 0x7AE/65536
+				translation[0] += 0x7AE/translation_scale
 			
 			object_unk0 = struct.unpack('<3I', f.read(0xC))
 			
+			vertex_scale = 256
 			for i in range (numVertex):
 				vertex = struct.unpack('<3h', f.read(0x6))
-				vertex = [vertex[0]/256, vertex[1]/256, vertex[2]/256]
+				vertex = [vertex[0]/vertex_scale, vertex[1]/vertex_scale, vertex[2]/vertex_scale]
 				vertices.append ((vertex[0], vertex[1], vertex[2]))
 			if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 				padding = f.read(0x2)
 			
+			Nvertex_scale = 4096
 			if is_traffic == False:
 				if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
 					for i in range (numVertex):
 						Nvertex = struct.unpack('<3h', f.read(0x6))
-						Nvertex = [Nvertex[0]/4096, Nvertex[1]/4096, Nvertex[2]/4096]
+						Nvertex = [Nvertex[0]/Nvertex_scale, Nvertex[1]/Nvertex_scale, Nvertex[2]/Nvertex_scale]
 						normals.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
 					if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
 						padding = f.read(0x2)
