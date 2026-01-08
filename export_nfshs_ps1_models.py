@@ -64,18 +64,31 @@ def main(context, export_path, export_traffic, m):
 		
 		with open(file_path, "wb") as f:
 			if export_traffic == False:
-				if "header_unk0" in main_collection:
+				try:
 					header_unk0 = [id_to_int(i) for i in main_collection["header_unk0"]]
-					f.write(struct.pack('<57I', *header_unk0))
-				else:
-					f.write(b'\x00' * 0xE4)
-				if "header_unk1" in main_collection:
+				except:
+					print("WARNING: collection %s is missing parameter %s. Assuming some value (0)." % (main_collection.name, '"header_unk0"'))
+					header_unk0 = [0 for _ in range(57)]
+				try:
 					header_unk1 = [id_to_int(i) for i in main_collection["header_unk1"]]
-					f.write(struct.pack('<90I', *header_unk1))
-				else:
-					f.write(b'\x00' * 0x168)
+				except:
+					print("WARNING: collection %s is missing parameter %s. Assuming some value (0)." % (main_collection.name, '"header_unk1"'))
+					header_unk1 = [0 for _ in range(90)]
 			else:
-				f.write(b'\x00' * 0x24C)
+				header_unk0 = [0 for _ in range(57)]
+				header_unk1 = [0 for _ in range(90)]
+			
+			# Writing header
+			for i in range(57):
+				try:
+					f.write(struct.pack('<I', header_unk0[i]))
+				except:
+					f.write(struct.pack('<I', 0))
+			for i in range(90):
+				try:
+					f.write(struct.pack('<I', header_unk1[i]))
+				except:
+					f.write(struct.pack('<I', 0))
 			
 			object_by_index = {}
 			for obj in objects:
