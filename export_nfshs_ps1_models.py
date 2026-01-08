@@ -102,42 +102,55 @@ def main(context, export_path, export_traffic, m):
 			for index in range(57):
 				if index in object_by_index:
 					object = object_by_index[index]
+					
+					numVertex = 0
+					vertices = []
+					
 					# Inits
 					mesh = object.data
 					mesh.calc_normals_split()
 					loops = mesh.loops
 					bm = bmesh.new()
 					bm.from_mesh(mesh)
-				
-					numVertex = len(mesh.vertices)
+					
 					numFacet = len(mesh.polygons)
+					
+					translation_scale = 65536
 					translation = Matrix(np.linalg.inv(m) @ object.matrix_world)
 					translation = translation.to_translation()
-					translation = [round(translation[0]*65536),
-								   round(translation[1]*65536),
-								   round(translation[2]*65536)]
+					translation = [round(translation[0]*translation_scale),
+								   round(translation[1]*translation_scale),
+								   round(translation[2]*translation_scale)]
 					if index == 39:
 						translation[0] += 0x7AE
 					elif index == 40:
 						translation[0] -= 0x7AE
 					
+					try:
+						object_unk0 = [id_to_int(i) for i in object["object_unk0"]]
+					except:
+						object_unk0 = [0 for _ in range(3)]
+					
+					vertex_scale = 256
+					for vert in bm.verts:
+						if vert.hide == False:
+							vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
+							numVertex += 1
+					
 					f.write(struct.pack('<H', numVertex))
 					f.write(struct.pack('<H', numFacet))
 					f.write(struct.pack('<3i', *translation))
 					
-					try:
-						object_unk0 = [id_to_int(i) for i in object["object_unk0"]]
-						f.write(struct.pack('<3I', *object_unk0))
-					except:
-						f.write(b'\x00' * 0xC)
+					for i in range(3):
+						try:
+							f.write(struct.pack('<I', object_unk0[i]))
+						except:
+							f.write(struct.pack('<I', 0))
 					
-					for vert in mesh.vertices:
-						vertex = [round(vert.co[0]*256),
-								  round(vert.co[1]*256),
-								  round(vert.co[2]*256)]
-						f.write(struct.pack('<3h', *vertex))
-					if len(mesh.vertices) % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
-						f.write(b'\x00' * 0x2)
+					for i in range(0, numVertex):
+						f.write(struct.pack('<3h', *vertices[i]))
+					if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+						f.write(struct.pack('<h', 0))
 					
 					if export_traffic == False:
 						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
