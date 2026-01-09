@@ -104,7 +104,9 @@ def main(context, export_path, export_traffic, m):
 					object = object_by_index[index]
 					
 					numVertex = 0
+					numFacet = 0
 					vertices = []
+					faces = []
 					
 					# Inits
 					mesh = object.data
@@ -137,6 +139,7 @@ def main(context, export_path, export_traffic, m):
 							vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
 							numVertex += 1
 					
+					# Writing body
 					f.write(struct.pack('<H', numVertex))
 					f.write(struct.pack('<H', numFacet))
 					f.write(struct.pack('<3i', *translation))
@@ -147,10 +150,11 @@ def main(context, export_path, export_traffic, m):
 						except:
 							f.write(struct.pack('<I', 0))
 					
-					for i in range(0, numVertex):
-						f.write(struct.pack('<3h', *vertices[i]))
-					if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
-						f.write(struct.pack('<h', 0))
+					if numVertex > 0:
+						for i in range(0, numVertex):
+							f.write(struct.pack('<3h', *vertices[i]))
+						if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+							f.write(struct.pack('<h', 0))
 					
 					if export_traffic == False:
 						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
@@ -178,7 +182,12 @@ def main(context, export_path, export_traffic, m):
 						except:
 							flag = 0
 						
-						textureIndex = int(mesh.materials[face.material_index].name)
+						material_index = face.material_index
+						
+						try:
+							textureIndex = int(mesh.materials[material_index].name)
+						except:
+							textureIndex = 0
 						
 						if len(face.vertices) > 3:
 							print("ERROR: non triangular face on mesh %s." % mesh.name)
@@ -194,20 +203,28 @@ def main(context, export_path, export_traffic, m):
 						uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
 						uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
 						
-						f.write(struct.pack('<h', flag))
-						f.write(struct.pack('<B', textureIndex))
-						f.write(struct.pack('<B', vertexId0))
-						f.write(struct.pack('<B', vertexId1))
-						f.write(struct.pack('<B', vertexId2))
-						f.write(struct.pack('<2B', *uv0))
-						f.write(struct.pack('<2B', *uv1))
-						f.write(struct.pack('<2B', *uv2))
+						faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
+					
+					if numFacet > 0:
+						for i in range(0, numFacet):
+							flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2 = faces[i]
+							f.write(struct.pack('<h', flag))
+							f.write(struct.pack('<B', textureIndex))
+							f.write(struct.pack('<B', vertexId0))
+							f.write(struct.pack('<B', vertexId1))
+							f.write(struct.pack('<B', vertexId2))
+							f.write(struct.pack('<2B', *uv0))
+							f.write(struct.pack('<2B', *uv1))
+							f.write(struct.pack('<2B', *uv2))
 					
 					mesh.free_normals_split()
 					bm.clear()
 					bm.free()
 				else:
-					f.write(b'\x00' * 0x1C)
+					f.write(struct.pack('<H', 0))
+					f.write(struct.pack('<H', 0))
+					f.write(struct.pack('<3i', 0, 0, 0))
+					f.write(struct.pack('<3I', 0, 0, 0))
 	
 	print("Finished")
 	elapsed_time = time.time() - start_time
