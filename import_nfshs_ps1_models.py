@@ -87,7 +87,7 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 		if len(vertices) > 0:
 			obj = create_object(index, vertices, normals, faces)
 			obj["object_index"] = index
-			obj["object_unk0"] = [int_to_id(object_unk0), int_to_id(object_unk1), int_to_id(object_unk2)]	## Keeping temporarily for compatibility
+			obj["object_unk0"] = int_to_id(object_unk0)
 			obj["object_unk1"] = int_to_id(object_unk1)
 			obj["object_unk2"] = int_to_id(object_unk2)
 			main_collection.objects.link(obj)
