@@ -63,165 +63,130 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 	
 	print("Importing file %s" % os.path.basename(file_path))
 	
-	with open(file_path, "rb") as f:
-		header_unk0 = struct.unpack('<57I', f.read(0xE4))
-		main_collection["header_unk0"] = [int_to_id(i) for i in header_unk0]
+	## PARSING FILES
+	print("Parsing file...")
+	parsing_time = time.time()
+	
+	Transformer_zScene = read_Transformer_zScene(file_path, is_traffic)
+	header_unk0, header_unk1, Transformer_zObjects = Transformer_zScene
+	
+	elapsed_time = time.time() - parsing_time
+	print("... %.4fs" % elapsed_time)
+	
+	## IMPORTING TO SCENE
+	print("Importing data to scene...")
+	importing_time = time.time()
+	
+	main_collection["header_unk0"] = [int_to_id(i) for i in header_unk0]
+	main_collection["header_unk1"] = [int_to_id(i) for i in header_unk1]
+	
+	for index in range(0, len(Transformer_zObjects)):
+		Transformer_zObj = Transformer_zObjects[index]
+		numVertex, numFacet, translation, object_unk0, object_unk1, object_unk2, vertices, normals, faces = Transformer_zObj
 		
-		header_unk1 = struct.unpack('<90I', f.read(0x168))
-		main_collection["header_unk1"] = [int_to_id(i) for i in header_unk1]
+		geoPartName = get_geoPartNames(index)
 		
-		for index in range(57):
-			vertices = []
-			normals = []
-			flags = []
-			textures = []
-			faces = []
-			loop_uvs = []
+		if len(vertices) > 0:
+			#==================================================================================================
+			#Building Mesh
+			#==================================================================================================
+			me_ob = bpy.data.meshes.new(geoPartName)
+			obj = bpy.data.objects.new(geoPartName, me_ob)
 			
-			geoPartName = get_geoPartNames(index)
-			numVertex = struct.unpack('<H', f.read(0x2))[0]
-			numFacet = struct.unpack('<H', f.read(0x2))[0]
+			#Get a BMesh representation
+			bm = bmesh.new()
 			
-			translation_scale = 65536
-			translation = struct.unpack('<3i', f.read(0xC))
-			translation = [translation[0]/translation_scale, translation[1]/translation_scale, translation[2]/translation_scale]
+			#Creating new properties
+			flag = (bm.faces.layers.int.get("flag") or bm.faces.layers.int.new('flag'))
 			
-			if index == 39:
-				translation[0] -= 0x7AE/translation_scale
-			elif index == 40:
-				translation[0] += 0x7AE/translation_scale
+			BMVert_dictionary = {}
 			
-			object_unk0 = struct.unpack('<3I', f.read(0xC))
+			normal_data = []
+			has_some_normal_data = False
 			
-			vertex_scale = 256
-			for i in range (numVertex):
-				vertex = struct.unpack('<3h', f.read(0x6))
-				vertex = [vertex[0]/vertex_scale, vertex[1]/vertex_scale, vertex[2]/vertex_scale]
-				vertices.append ((vertex[0], vertex[1], vertex[2]))
-			if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
-				padding = f.read(0x2)
+			uvName = "UVMap" #or UV1Map
+			uv_layer = bm.loops.layers.uv.get(uvName) or bm.loops.layers.uv.new(uvName)
 			
-			Nvertex_scale = 4096
-			if is_traffic == False:
-				if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
-					for i in range (numVertex):
-						Nvertex = struct.unpack('<3h', f.read(0x6))
-						Nvertex = [Nvertex[0]/Nvertex_scale, Nvertex[1]/Nvertex_scale, Nvertex[2]/Nvertex_scale]
-						normals.append ((Nvertex[0], Nvertex[1], Nvertex[2]))
-					if numVertex % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
-						padding = f.read(0x2)
-			
-			for i in range(numFacet):
-				flag = struct.unpack('<h', f.read(0x2))[0]
-				textureIndex = struct.unpack('<B', f.read(0x1))[0]
-				vertexId0 = struct.unpack('<B', f.read(0x1))[0]
-				vertexId1 = struct.unpack('<B', f.read(0x1))[0]
-				vertexId2 = struct.unpack('<B', f.read(0x1))[0]
-				uv0 = struct.unpack('<2B', f.read(0x2))
-				uv0 = [uv0[0]/0xFF, 1.0 - uv0[1]/0xFF]
-				uv1 = struct.unpack('<2B', f.read(0x2))
-				uv1 = [uv1[0]/0xFF, 1.0 - uv1[1]/0xFF]
-				uv2 = struct.unpack('<2B', f.read(0x2))
-				uv2 = [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]
+			for i, position in enumerate(vertices):
+				BMVert = bm.verts.new(position)
+				BMVert.index = i
+				BMVert_dictionary[i] = BMVert
 				
-				flags.append(flag)
-				textures.append(textureIndex)
-				faces.append((vertexId0, vertexId1, vertexId2))
-				loop_uvs.extend([uv0, uv1, uv2])
-			
-			if numVertex > 0:
-				#==================================================================================================
-				#Building Mesh
-				#==================================================================================================
-				me_ob = bpy.data.meshes.new(geoPartName)
-				obj = bpy.data.objects.new(geoPartName, me_ob)
-				
-				#Get a BMesh representation
-				bm = bmesh.new()
-				
-				#Creating new properties
-				flag = (bm.faces.layers.int.get("flag") or bm.faces.layers.int.new('flag'))
-				
-				BMVert_dictionary = {}
-				
-				normal_data = []
-				has_some_normal_data = False
-				
-				for i, position in enumerate(vertices):
-					BMVert = bm.verts.new(position)
-					BMVert.index = i
-					BMVert_dictionary[i] = BMVert
-					
-					if normals:
-						normal = normals[i]
-						BMVert.normal = normal
-						normal_data.append([i, normal])
-						if has_some_normal_data == False:
-							me_ob.create_normals_split()
-						has_some_normal_data = True
-					else:
-						normal_data.append([i, (0.0, 0.0, 0.0)])
-				
-				for i, face in enumerate(faces):
-					face_vertices = [BMVert_dictionary[face[0]], BMVert_dictionary[face[1]], BMVert_dictionary[face[2]]]
-					try:
-						BMFace = bm.faces.get(face_vertices) or bm.faces.new(face_vertices)
-					except:
-						pass
-					if BMFace.index != -1:
-						BMFace0 = BMFace
-						BMFace = BMFace.copy(verts=False, edges=False)
-						
-						original_face_indices = [vert.index for vert in BMFace.verts]
-						new_face_indices = [vert.index for vert in face_vertices]
-						same_winding_faces_as_original = [original_face_indices[-n:] + original_face_indices[:-n] for n in range(0, len(original_face_indices))]
-						if new_face_indices not in same_winding_faces_as_original:
-							BMFace.normal_flip()
-					
-					BMFace.index = i
-					BMFace.smooth = True
-					BMFace[flag] = flags[i]
-					
-					material_name = str(textures[i])
-					mat = bpy.data.materials.get(material_name)
-					if mat == None:
-						mat = bpy.data.materials.new(material_name)
-						mat.use_nodes = True
-						mat.name = material_name
-						
-						if mat.node_tree.nodes[0].bl_idname != "ShaderNodeOutputMaterial":
-							mat.node_tree.nodes[0].name = material_name
-					
-					if mat.name not in me_ob.materials:
-						me_ob.materials.append(mat)
-					
-					BMFace.material_index = me_ob.materials.find(mat.name)
-				
-				#Finish up, write the bmesh back to the mesh
-				bm.to_mesh(me_ob)
-				bm.free()
-				
-				if has_some_normal_data:
-					temp = []
-					for data in normal_data:
-						temp.append(data[1])
-					normal_data = temp[:]
-					
-					me_ob.normals_split_custom_set_from_vertices( normal_data )
-					me_ob.use_auto_smooth = True
+				if normals:
+					normal = normals[i]
+					BMVert.normal = normal
+					normal_data.append([i, normal])
+					if has_some_normal_data == False:
+						me_ob.create_normals_split()
+					has_some_normal_data = True
 				else:
-					me_ob.calc_normals()
+					normal_data.append([i, (0.0, 0.0, 0.0)])
+			
+			for i, face in enumerate(faces):
+				_flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2 = face
 				
-				if loop_uvs:
-					uvName = "UVMap" #or UV1Map
-					uv_layer = me_ob.uv_layers.new(name=uvName)
-					uv_layer.data.foreach_set("uv", [coord for uv in loop_uvs for coord in uv])
+				face_vertices = [BMVert_dictionary[vertexId0], BMVert_dictionary[vertexId1], BMVert_dictionary[vertexId2]]
+				face_uvs = [[uv0[0]/0xFF, 1.0 - uv0[1]/0xFF], [uv1[0]/0xFF, 1.0 - uv1[1]/0xFF], [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]]
+				try:
+					BMFace = bm.faces.get(face_vertices) or bm.faces.new(face_vertices)
+				except:
+					pass
+				if BMFace.index != -1:
+					BMFace0 = BMFace
+					BMFace = BMFace.copy(verts=False, edges=False)
+					
+					original_face_indices = [vert.index for vert in BMFace.verts]
+					new_face_indices = [vert.index for vert in face_vertices]
+					same_winding_faces_as_original = [original_face_indices[-n:] + original_face_indices[:-n] for n in range(0, len(original_face_indices))]
+					if new_face_indices not in same_winding_faces_as_original:
+						BMFace.normal_flip()
 				
-				obj["object_index"] = index
-				obj["object_unk0"] = [int_to_id(i) for i in object_unk0]
-				main_collection.objects.link(obj)
-				bpy.context.view_layer.objects.active = obj
-				obj.matrix_world = m @ Matrix.Translation(translation)
+				BMFace.index = i
+				BMFace.smooth = True
+				BMFace[flag] = _flag
+				
+				material_name = str(textureIndex)
+				mat = bpy.data.materials.get(material_name)
+				if mat == None:
+					mat = bpy.data.materials.new(material_name)
+					mat.use_nodes = True
+					mat.name = material_name
+					
+					if mat.node_tree.nodes[0].bl_idname != "ShaderNodeOutputMaterial":
+						mat.node_tree.nodes[0].name = material_name
+				
+				if mat.name not in me_ob.materials:
+					me_ob.materials.append(mat)
+				
+				BMFace.material_index = me_ob.materials.find(mat.name)
+				
+				for loop, uv in zip(BMFace.loops, face_uvs):
+					loop[uv_layer].uv = uv
+			
+			#Finish up, write the bmesh back to the mesh
+			bm.to_mesh(me_ob)
+			bm.free()
+			
+			if has_some_normal_data:
+				temp = []
+				for data in normal_data:
+					temp.append(data[1])
+				normal_data = temp[:]
+				
+				me_ob.normals_split_custom_set_from_vertices( normal_data )
+				me_ob.use_auto_smooth = True
+			else:
+				me_ob.calc_normals()
+			
+			obj["object_index"] = index
+			obj["object_unk0"] = [int_to_id(object_unk0), int_to_id(object_unk1), int_to_id(object_unk2)]	## Keeping temporarily for compatibility
+			obj["object_unk1"] = int_to_id(object_unk1)
+			obj["object_unk2"] = int_to_id(object_unk2)
+			main_collection.objects.link(obj)
+			obj.matrix_world = m @ Matrix.Translation(translation)
+	
+	elapsed_time = time.time() - importing_time
+	print("... %.4fs" % elapsed_time)
 	
 	## Adjusting scene
 	for window in bpy.context.window_manager.windows:
@@ -240,6 +205,94 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 	elapsed_time = time.time() - start_time
 	print("Elapsed time: %.4fs" % elapsed_time)
 	return {'FINISHED'}
+
+
+def read_Transformer_zUV(f):
+	u = struct.unpack('<B', f.read(0x1))[0]
+	v = struct.unpack('<B', f.read(0x1))[0]
+	
+	Transformer_zUV = [u, v]
+	
+	return Transformer_zUV
+
+
+def read_Transformer_zFacet(f):
+	flag = struct.unpack('<h', f.read(0x2))[0]
+	textureIndex = struct.unpack('<B', f.read(0x1))[0]
+	vertexId0 = struct.unpack('<B', f.read(0x1))[0]
+	vertexId1 = struct.unpack('<B', f.read(0x1))[0]
+	vertexId2 = struct.unpack('<B', f.read(0x1))[0]
+	uv0 = read_Transformer_zUV(f)
+	uv1 = read_Transformer_zUV(f)
+	uv2 = read_Transformer_zUV(f)
+	
+	Transformer_zFacet = [flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2]
+	
+	return Transformer_zFacet
+
+
+def read_Transformer_zObj(f, is_traffic, index):
+	vertices = []
+	normals = []
+	faces = []
+	
+	numVertex = struct.unpack('<H', f.read(0x2))[0]
+	numFacet = struct.unpack('<H', f.read(0x2))[0]
+	
+	translation_scale = 65536
+	translation = struct.unpack('<3i', f.read(0xC))
+	translation = [translation[0]/translation_scale, translation[1]/translation_scale, translation[2]/translation_scale]
+	
+	if index == 39:
+		translation[0] -= 0x7AE/translation_scale
+	elif index == 40:
+		translation[0] += 0x7AE/translation_scale
+	
+	unk0 = struct.unpack('<I', f.read(0x4))[0]
+	unk1 = struct.unpack('<I', f.read(0x4))[0]
+	unk2 = struct.unpack('<I', f.read(0x4))[0]
+	
+	vertex_scale = 256
+	for i in range(numVertex):
+		vertex = struct.unpack('<3h', f.read(0x6))
+		vertex = [vertex[0]/vertex_scale, vertex[1]/vertex_scale, vertex[2]/vertex_scale]
+		vertices.append((vertex[0], vertex[1], vertex[2]))
+	if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+		padding = f.read(0x2)
+	
+	Nvertex_scale = 4096
+	if is_traffic == False:
+		if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
+			for i in range(numVertex):
+				Nvertex = struct.unpack('<3h', f.read(0x6))
+				Nvertex = [Nvertex[0]/Nvertex_scale, Nvertex[1]/Nvertex_scale, Nvertex[2]/Nvertex_scale]
+				normals.append((Nvertex[0], Nvertex[1], Nvertex[2]))
+			if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+				padding = f.read(0x2)
+	
+	for i in range(numFacet):
+		Transformer_zFacet = read_Transformer_zFacet(f)
+		faces.append(Transformer_zFacet)
+	
+	Transformer_zObj = [numVertex, numFacet, translation, unk0, unk1, unk2, vertices, normals, faces]
+	
+	return Transformer_zObj
+
+
+def read_Transformer_zScene(file_path, is_traffic):
+	Transformer_zObjects = []
+	
+	with open(file_path, "rb") as f:
+		unk0 = struct.unpack('<57I', f.read(0xE4))
+		unk1 = struct.unpack('<90I', f.read(0x168))
+		
+		for index in range(57):
+			Transformer_zObj = read_Transformer_zObj(f, is_traffic, index)
+			Transformer_zObjects.append(Transformer_zObj)
+	
+	Transformer_zScene = [unk0, unk1, Transformer_zObjects]
+	
+	return Transformer_zScene
 
 
 def get_R3DCar_ObjectInfo(index):
@@ -305,63 +358,63 @@ def get_R3DCar_ObjectInfo(index):
 
 
 def get_geoPartNames(index):
-	geoPartNames = {0: "Body_Medium",
-					1: "Body_Low",
-					2: "Body_Undertray",
-					3: "Wheel_Wells",
-					4: "Wheel_Squares_(LOW)",
-					5: "Wheel_Shadow",
-					6: "HI_Upgrade_Front_Lip",
-					7: "MID_Upgrade_Front_Lip",
+	geoPartNames = {0: "Body Medium",
+					1: "Body Low",
+					2: "Body Undertray",
+					3: "Wheel Wells",
+					4: "Wheel Squares (LOW)",
+					5: "Wheel Shadow",
+					6: "HI Upgrade Front Lip",
+					7: "MID Upgrade Front Lip",
 					8: "Spoiler Original",
 					9: "Spoiler Uprights",
-					10: "Spoiler_Upgraded",
+					10: "Spoiler Upgraded",
 					11: "Spoiler Upgraded Uprights ",
-					12: "HI_Fog_Lights_and_Rear_bumper",
-					13: "MID_Fog_Lights_and_Rear_bumper",
+					12: "HI Fog Lights and Rear bumper",
+					13: "MID Fog Lights and Rear bumper",
 					14: "Wing Mirror Attachment Points",
 					15: "Wheel Attachment Points",
-					16: "HI_Brake_Light_Quads",
-					17: "MID_Brake_Light_Quads",
+					16: "HI Brake Light Quads",
+					17: "MID Brake Light Quads",
 					18: "Unknown Rear Light tris",
 					19: "Rear Inner Light Quads",
 					20: "Rear Inner Light Quads rotated",
 					21: "Rear Inner Light Tris",
-					22: "HI_Front_Light_quads",
-					23: "MID_Front_Light_quads",
+					22: "HI Front Light quads",
+					23: "MID Front Light quads",
 					24: "Front Light triangles",
 					25: "Rear Main Light Quads",
 					26: "Rear Main Light Quads dup",
 					27: "Rear Main Light Tris",
-					28: "HI_Headlight_Housing",
-					29: "MID_Headlight_Housing",
+					28: "HI Headlight Housing",
+					29: "MID Headlight Housing",
 					30: "Front Headlight light Pos",
-					31: "Logo_and_Rear_Numberplate",
-					32: "Exhaust_Tips",
-					33: "Upgrade_Exhaust_Tips",
+					31: "Logo and Rear Numberplate",
+					32: "Exhaust Tips",
+					33: "Upgrade Exhaust Tips",
 					34: "Mid Body F/R Triangles",
-					35: "Interior_Cutoff_+_Driver_Pos",
+					35: "Interior Cutoff + Driver Pos",
 					36: "Cabin",
-					37: "Steering_Wheel",
-					38: "Driver_Body",
-					39: "Driver_Right_Arm",
-					40: "Driver_Left_Arm",
-					41: "Right_Body_High",
-					42: "Left_Body_High",
-					43: "Right_Wing_Mirror",
-					44: "Left_Wing_Mirror",
+					37: "Steering Wheel",
+					38: "Driver Body",
+					39: "Driver Right Arm",
+					40: "Driver Left Arm",
+					41: "Right Body High",
+					42: "Left Body High",
+					43: "Right Wing Mirror",
+					44: "Left Wing Mirror",
 					45: "Front Right Light Bucket",
 					46: "Front Left Light bBucket",
-					47: "Front_Right_Wheel",
-					48: "Front_Left_Wheel",
-					49: "HI_Front_Left_Tire",
-					50: "HI_Front_Right_Tire",
-					51: "Front_Right_Tire",
-					52: "Front_Left_Tire",
-					53: "HI_Rear_Left_Tire",
-					54: "HI_Rear_Right_Tire",
-					55: "Rear_Right_Wheel",
-					56: "Rear_Left_Wheel"}
+					47: "Front Right Wheel",
+					48: "Front Left Wheel",
+					49: "HI Front Left Tire",
+					50: "HI Front Right Tire",
+					51: "Front Right Tire",
+					52: "Front Left Tire",
+					53: "HI Rear Left Tire",
+					54: "HI Rear Right Tire",
+					55: "Rear Right Wheel",
+					56: "Rear Left Wheel"}
 	#Thanks to rata536 and Hypercycle for this list
 	return geoPartNames[index]
 
@@ -419,7 +472,7 @@ def clearScene(context): # OK
 @orientation_helper(axis_forward='-Y', axis_up='Z')
 class ImportNFSHSPS1(Operator, ImportHelper):
 	"""Load a Need for Speed High Stakes (1999) PS1 model file"""
-	bl_idname = "import_nfshsps1.data"  # important since its how bpy.ops.import_test.some_data is constructed
+	bl_idname = "import_nfshsps1.data"	# important since its how bpy.ops.import_test.some_data is constructed
 	bl_label = "Import models"
 	bl_options = {'PRESET'}
 	
@@ -429,7 +482,7 @@ class ImportNFSHSPS1(Operator, ImportHelper):
 	filter_glob: StringProperty(
 			options={'HIDDEN'},
 			default="*.geo",
-			maxlen=255,  # Max internal buffer length, longer would be clamped.
+			maxlen=255,	 # Max internal buffer length, longer would be clamped.
 			)
 	
 	files: CollectionProperty(
