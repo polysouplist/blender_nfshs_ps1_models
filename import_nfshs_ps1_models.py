@@ -84,100 +84,8 @@ def import_nfshs_ps1_models(context, file_path, is_traffic, clear_scene, m):
 		Transformer_zObj = Transformer_zObjects[index]
 		numVertex, numFacet, translation, object_unk0, object_unk1, object_unk2, vertices, normals, faces = Transformer_zObj
 		
-		geoPartName = get_geoPartNames(index)
-		
 		if len(vertices) > 0:
-			#==================================================================================================
-			#Building Mesh
-			#==================================================================================================
-			me_ob = bpy.data.meshes.new(geoPartName)
-			obj = bpy.data.objects.new(geoPartName, me_ob)
-			
-			#Get a BMesh representation
-			bm = bmesh.new()
-			
-			#Creating new properties
-			flag = (bm.faces.layers.int.get("flag") or bm.faces.layers.int.new('flag'))
-			
-			BMVert_dictionary = {}
-			
-			normal_data = []
-			has_some_normal_data = False
-			
-			uvName = "UVMap" #or UV1Map
-			uv_layer = bm.loops.layers.uv.get(uvName) or bm.loops.layers.uv.new(uvName)
-			
-			for i, position in enumerate(vertices):
-				BMVert = bm.verts.new(position)
-				BMVert.index = i
-				BMVert_dictionary[i] = BMVert
-				
-				if normals:
-					normal = normals[i]
-					BMVert.normal = normal
-					normal_data.append([i, normal])
-					if has_some_normal_data == False:
-						me_ob.create_normals_split()
-					has_some_normal_data = True
-				else:
-					normal_data.append([i, (0.0, 0.0, 0.0)])
-			
-			for i, face in enumerate(faces):
-				_flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2 = face
-				
-				face_vertices = [BMVert_dictionary[vertexId0], BMVert_dictionary[vertexId1], BMVert_dictionary[vertexId2]]
-				face_uvs = [[uv0[0]/0xFF, 1.0 - uv0[1]/0xFF], [uv1[0]/0xFF, 1.0 - uv1[1]/0xFF], [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]]
-				try:
-					BMFace = bm.faces.get(face_vertices) or bm.faces.new(face_vertices)
-				except:
-					pass
-				if BMFace.index != -1:
-					BMFace0 = BMFace
-					BMFace = BMFace.copy(verts=False, edges=False)
-					
-					original_face_indices = [vert.index for vert in BMFace.verts]
-					new_face_indices = [vert.index for vert in face_vertices]
-					same_winding_faces_as_original = [original_face_indices[-n:] + original_face_indices[:-n] for n in range(0, len(original_face_indices))]
-					if new_face_indices not in same_winding_faces_as_original:
-						BMFace.normal_flip()
-				
-				BMFace.index = i
-				BMFace.smooth = True
-				BMFace[flag] = _flag
-				
-				material_name = str(textureIndex)
-				mat = bpy.data.materials.get(material_name)
-				if mat == None:
-					mat = bpy.data.materials.new(material_name)
-					mat.use_nodes = True
-					mat.name = material_name
-					
-					if mat.node_tree.nodes[0].bl_idname != "ShaderNodeOutputMaterial":
-						mat.node_tree.nodes[0].name = material_name
-				
-				if mat.name not in me_ob.materials:
-					me_ob.materials.append(mat)
-				
-				BMFace.material_index = me_ob.materials.find(mat.name)
-				
-				for loop, uv in zip(BMFace.loops, face_uvs):
-					loop[uv_layer].uv = uv
-			
-			#Finish up, write the bmesh back to the mesh
-			bm.to_mesh(me_ob)
-			bm.free()
-			
-			if has_some_normal_data:
-				temp = []
-				for data in normal_data:
-					temp.append(data[1])
-				normal_data = temp[:]
-				
-				me_ob.normals_split_custom_set_from_vertices( normal_data )
-				me_ob.use_auto_smooth = True
-			else:
-				me_ob.calc_normals()
-			
+			obj = create_object(index, vertices, normals, faces)
 			obj["object_index"] = index
 			obj["object_unk0"] = [int_to_id(object_unk0), int_to_id(object_unk1), int_to_id(object_unk2)]	## Keeping temporarily for compatibility
 			obj["object_unk1"] = int_to_id(object_unk1)
@@ -293,6 +201,103 @@ def read_Transformer_zScene(file_path, is_traffic):
 	Transformer_zScene = [unk0, unk1, Transformer_zObjects]
 	
 	return Transformer_zScene
+
+
+def create_object(index, vertices, normals, faces):
+	geoPartName = get_geoPartNames(index)
+	
+	#==================================================================================================
+	#Building Mesh
+	#==================================================================================================
+	me_ob = bpy.data.meshes.new(geoPartName)
+	obj = bpy.data.objects.new(geoPartName, me_ob)
+	
+	#Get a BMesh representation
+	bm = bmesh.new()
+	
+	#Creating new properties
+	flag = (bm.faces.layers.int.get("flag") or bm.faces.layers.int.new('flag'))
+	
+	BMVert_dictionary = {}
+	
+	normal_data = []
+	has_some_normal_data = False
+	
+	uvName = "UVMap" #or UV1Map
+	uv_layer = bm.loops.layers.uv.get(uvName) or bm.loops.layers.uv.new(uvName)
+	
+	for i, position in enumerate(vertices):
+		BMVert = bm.verts.new(position)
+		BMVert.index = i
+		BMVert_dictionary[i] = BMVert
+		
+		if normals:
+			normal = normals[i]
+			BMVert.normal = normal
+			normal_data.append([i, normal])
+			if has_some_normal_data == False:
+				me_ob.create_normals_split()
+			has_some_normal_data = True
+		else:
+			normal_data.append([i, (0.0, 0.0, 0.0)])
+	
+	for i, face in enumerate(faces):
+		_flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2 = face
+		
+		face_vertices = [BMVert_dictionary[vertexId0], BMVert_dictionary[vertexId1], BMVert_dictionary[vertexId2]]
+		face_uvs = [[uv0[0]/0xFF, 1.0 - uv0[1]/0xFF], [uv1[0]/0xFF, 1.0 - uv1[1]/0xFF], [uv2[0]/0xFF, 1.0 - uv2[1]/0xFF]]
+		try:
+			BMFace = bm.faces.get(face_vertices) or bm.faces.new(face_vertices)
+		except:
+			pass
+		if BMFace.index != -1:
+			BMFace0 = BMFace
+			BMFace = BMFace.copy(verts=False, edges=False)
+			
+			original_face_indices = [vert.index for vert in BMFace.verts]
+			new_face_indices = [vert.index for vert in face_vertices]
+			same_winding_faces_as_original = [original_face_indices[-n:] + original_face_indices[:-n] for n in range(0, len(original_face_indices))]
+			if new_face_indices not in same_winding_faces_as_original:
+				BMFace.normal_flip()
+		
+		BMFace.index = i
+		BMFace.smooth = True
+		BMFace[flag] = _flag
+		
+		material_name = str(textureIndex)
+		mat = bpy.data.materials.get(material_name)
+		if mat == None:
+			mat = bpy.data.materials.new(material_name)
+			mat.use_nodes = True
+			mat.name = material_name
+			
+			if mat.node_tree.nodes[0].bl_idname != "ShaderNodeOutputMaterial":
+				mat.node_tree.nodes[0].name = material_name
+		
+		if mat.name not in me_ob.materials:
+			me_ob.materials.append(mat)
+		
+		BMFace.material_index = me_ob.materials.find(mat.name)
+		
+		for loop, uv in zip(BMFace.loops, face_uvs):
+			loop[uv_layer].uv = uv
+	
+	#Finish up, write the bmesh back to the mesh
+	bm.to_mesh(me_ob)
+	bm.free()
+	
+	if has_some_normal_data:
+		temp = []
+		for data in normal_data:
+			temp.append(data[1])
+		normal_data = temp[:]
+		
+		me_ob.normals_split_custom_set_from_vertices( normal_data )
+		me_ob.use_auto_smooth = True
+	else:
+		me_ob.calc_normals()
+	
+	return obj
 
 
 def get_R3DCar_ObjectInfo(index):
