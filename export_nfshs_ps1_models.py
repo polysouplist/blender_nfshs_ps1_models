@@ -129,9 +129,20 @@ def main(context, export_path, export_traffic, m):
 						translation[0] -= 0x7AE
 					
 					try:
-						object_unk0 = [id_to_int(i) for i in object["object_unk0"]]
+						object_unk0 = id_to_int(object["object_unk0"])
 					except:
-						object_unk0 = [0 for _ in range(3)]
+						print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk0"'))
+						object_unk0 = 0
+					try:
+						object_unk1 = id_to_int(object["object_unk1"])
+					except:
+						print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk1"'))
+						object_unk1 = 0
+					try:
+						object_unk2 = id_to_int(object["object_unk2"])
+					except:
+						print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk2"'))
+						object_unk2 = 0
 					
 					vertex_scale = 256
 					for vert in bm.verts:
@@ -143,18 +154,14 @@ def main(context, export_path, export_traffic, m):
 					f.write(struct.pack('<H', numVertex))
 					f.write(struct.pack('<H', numFacet))
 					f.write(struct.pack('<3i', *translation))
+					f.write(struct.pack('<I', object_unk0))
+					f.write(struct.pack('<I', object_unk1))
+					f.write(struct.pack('<I', object_unk2))
 					
-					for i in range(3):
-						try:
-							f.write(struct.pack('<I', object_unk0[i]))
-						except:
-							f.write(struct.pack('<I', 0))
-					
-					if numVertex > 0:
-						for i in range(0, numVertex):
-							f.write(struct.pack('<3h', *vertices[i]))
-						if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
-							f.write(struct.pack('<h', 0))
+					for i in range(0, numVertex):
+						f.write(struct.pack('<3h', *vertices[i]))
+					if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+						f.write(struct.pack('<h', 0))
 					
 					if export_traffic == False:
 						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
@@ -205,17 +212,9 @@ def main(context, export_path, export_traffic, m):
 						
 						faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
 					
-					if numFacet > 0:
-						for i in range(0, numFacet):
-							flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2 = faces[i]
-							f.write(struct.pack('<h', flag))
-							f.write(struct.pack('<B', textureIndex))
-							f.write(struct.pack('<B', vertexId0))
-							f.write(struct.pack('<B', vertexId1))
-							f.write(struct.pack('<B', vertexId2))
-							f.write(struct.pack('<2B', *uv0))
-							f.write(struct.pack('<2B', *uv1))
-							f.write(struct.pack('<2B', *uv2))
+					for i in range(0, numFacet):
+						Transformer_zFacet = faces[i]
+						write_Transformer_zFacet(f, Transformer_zFacet)
 					
 					mesh.free_normals_split()
 					bm.clear()
@@ -230,6 +229,30 @@ def main(context, export_path, export_traffic, m):
 	elapsed_time = time.time() - start_time
 	print("Elapsed time: %.4fs" % elapsed_time)
 	return {'FINISHED'}
+
+
+def write_Transformer_zUV(f, Transformer_zUV):
+	u, v = Transformer_zUV
+	
+	f.write(struct.pack('<B', u))
+	f.write(struct.pack('<B', v))
+	
+	return 0
+
+
+def write_Transformer_zFacet(f, Transformer_zFacet):
+	flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2 = Transformer_zFacet
+	
+	f.write(struct.pack('<h', flag))
+	f.write(struct.pack('<B', textureIndex))
+	f.write(struct.pack('<B', vertexId0))
+	f.write(struct.pack('<B', vertexId1))
+	f.write(struct.pack('<B', vertexId2))
+	write_Transformer_zUV(f, uv0)
+	write_Transformer_zUV(f, uv1)
+	write_Transformer_zUV(f, uv2)
+	
+	return 0
 
 
 def get_R3DCar_ObjectInfo(index):
