@@ -62,22 +62,22 @@ def main(context, export_path, export_traffic, m):
 		objects = main_collection.objects
 		object_index = -1
 		
-		with open(file_path, "wb") as f:
-			if export_traffic == False:
-				try:
-					header_unk0 = [id_to_int(i) for i in main_collection["header_unk0"]]
-				except:
-					print("WARNING: collection %s is missing parameter %s. Assuming some value (0)." % (main_collection.name, '"header_unk0"'))
-					header_unk0 = [0 for _ in range(57)]
-				try:
-					header_unk1 = [id_to_int(i) for i in main_collection["header_unk1"]]
-				except:
-					print("WARNING: collection %s is missing parameter %s. Assuming some value (0)." % (main_collection.name, '"header_unk1"'))
-					header_unk1 = [0 for _ in range(90)]
-			else:
+		if export_traffic == False:
+			try:
+				header_unk0 = [id_to_int(i) for i in main_collection["header_unk0"]]
+			except:
+				print("WARNING: collection %s is missing parameter %s. Assuming some value (0)." % (main_collection.name, '"header_unk0"'))
 				header_unk0 = [0 for _ in range(57)]
+			try:
+				header_unk1 = [id_to_int(i) for i in main_collection["header_unk1"]]
+			except:
+				print("WARNING: collection %s is missing parameter %s. Assuming some value (0)." % (main_collection.name, '"header_unk1"'))
 				header_unk1 = [0 for _ in range(90)]
-			
+		else:
+			header_unk0 = [0 for _ in range(57)]
+			header_unk1 = [0 for _ in range(90)]
+		
+		with open(file_path, "wb") as f:
 			# Writing header
 			for i in range(57):
 				try:
@@ -99,6 +99,8 @@ def main(context, export_path, export_traffic, m):
 						continue
 					object_by_index[idx] = obj
 			
+			#Transformer_zObjects = []
+			
 			for index in range(57):
 				if index in object_by_index:
 					object = object_by_index[index]
@@ -114,9 +116,7 @@ def main(context, export_path, export_traffic, m):
 					loops = mesh.loops
 					bm = bmesh.new()
 					bm.from_mesh(mesh)
-					
-					numFacet = len(mesh.polygons)
-					
+										
 					translation_scale = 65536
 					translation = Matrix(np.linalg.inv(m) @ object.matrix_world)
 					translation = translation.to_translation()
@@ -150,40 +150,18 @@ def main(context, export_path, export_traffic, m):
 							vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
 							numVertex += 1
 					
-					# Writing body
-					f.write(struct.pack('<H', numVertex))
-					f.write(struct.pack('<H', numFacet))
-					f.write(struct.pack('<3i', *translation))
-					f.write(struct.pack('<I', object_unk0))
-					f.write(struct.pack('<I', object_unk1))
-					f.write(struct.pack('<I', object_unk2))
+					uv_layer = mesh.uv_layers.active.data
+					flags = mesh.attributes.get("flag")
 					
-					for i in range(0, numVertex):
-						f.write(struct.pack('<3h', *vertices[i]))
-					if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
-						f.write(struct.pack('<h', 0))
-					
-					if export_traffic == False:
-						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
-							normals = {}
-							for face in mesh.polygons:
+					normals = {}
+					for face in mesh.polygons:
+						if export_traffic == False:
+							if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
 								for loop_ind in face.loop_indices:
 									vert_index = loops[loop_ind].vertex_index
 									if vert_index not in normals:
 										normals[vert_index] = loops[loop_ind].normal[:]
-							for vert in mesh.vertices:
-								normal = normals.get(vert.index, (0.0, 0.0, 0.0))
-								Nvertex = [round(normal[0]*4096),
-										   round(normal[1]*4096),
-										   round(normal[2]*4096)]
-								f.write(struct.pack('<3h', *Nvertex))
-							if len(mesh.vertices) % 2 == 1:	#Data offset after positions, happens when numVertex is odd.
-								f.write(b'\x00' * 0x2)
-					
-					uv_layer = mesh.uv_layers.active.data
-					flags = mesh.attributes.get("flag")
 						
-					for face in mesh.polygons:
 						try:
 							flag = flags.data[face.index].value
 						except:
@@ -210,7 +188,34 @@ def main(context, export_path, export_traffic, m):
 						uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
 						uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
 						
+						numFacet += 1
+						
 						faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
+					
+					# Writing body
+					f.write(struct.pack('<H', numVertex))
+					f.write(struct.pack('<H', numFacet))
+					f.write(struct.pack('<3i', *translation))
+					f.write(struct.pack('<I', object_unk0))
+					f.write(struct.pack('<I', object_unk1))
+					f.write(struct.pack('<I', object_unk2))
+					
+					for i in range(0, numVertex):
+						f.write(struct.pack('<3h', *vertices[i]))
+					if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+						f.write(struct.pack('<h', 0))
+					
+					if export_traffic == False:
+						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
+							Nvertex_scale = 4096
+							for i in range(0, numVertex):
+								normal = normals.get(i, (0.0, 0.0, 0.0))
+								Nvertex = [round(normal[0]*Nvertex_scale),
+										   round(normal[1]*Nvertex_scale),
+										   round(normal[2]*Nvertex_scale)]
+								f.write(struct.pack('<3h', *Nvertex))
+							if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+								f.write(struct.pack('<h', 0))
 					
 					for i in range(0, numFacet):
 						Transformer_zFacet = faces[i]
@@ -219,11 +224,19 @@ def main(context, export_path, export_traffic, m):
 					mesh.free_normals_split()
 					bm.clear()
 					bm.free()
+					
+					#Transformer_zObj = [numVertex, numFacet, translation, object_unk0, object_unk1, object_unk2, vertices, normals, faces]
 				else:
 					f.write(struct.pack('<H', 0))
 					f.write(struct.pack('<H', 0))
 					f.write(struct.pack('<3i', 0, 0, 0))
 					f.write(struct.pack('<3I', 0, 0, 0))
+					
+					#Transformer_zObj = [0, 0, [0, 0, 0], 0, 0, 0, [], [], []]
+				
+				#Transformer_zObjects.append(Transformer_zObj)
+			
+			#Transformer_zScene = [header_unk0, header_unk1, Transformer_zObjects]
 	
 	print("Finished")
 	elapsed_time = time.time() - start_time
