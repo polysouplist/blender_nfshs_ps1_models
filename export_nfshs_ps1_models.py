@@ -91,18 +91,11 @@ def main(context, export_path, export_traffic, m):
 			if index in object_by_index:
 				object = object_by_index[index]
 				
-				numVertex = 0
-				numFacet = 0
-				vertices = []
-				faces = []
+				numVertex, numFacet, vertices, normals, faces, status = read_object(object)
 				
-				# Inits
-				mesh = object.data
-				mesh.calc_normals_split()
-				loops = mesh.loops
-				bm = bmesh.new()
-				bm.from_mesh(mesh)
-									
+				if status == 1:
+					return {'CANCELLED'}
+				
 				translation_scale = 65536
 				translation = Matrix(np.linalg.inv(m) @ object.matrix_world)
 				translation = translation.to_translation()
@@ -130,56 +123,6 @@ def main(context, export_path, export_traffic, m):
 					print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk2"'))
 					object_unk2 = 0
 				
-				vertex_scale = 256
-				for vert in bm.verts:
-					if vert.hide == False:
-						vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
-						numVertex += 1
-				
-				uv_layer = mesh.uv_layers.active.data
-				flags = mesh.attributes.get("flag")
-				
-				normals = {}
-				for face in mesh.polygons:
-					if export_traffic == False:
-						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
-							for loop_ind in face.loop_indices:
-								vert_index = loops[loop_ind].vertex_index
-								if vert_index not in normals:
-									normals[vert_index] = loops[loop_ind].normal[:]
-					
-					try:
-						flag = flags.data[face.index].value
-					except:
-						flag = 0
-					
-					try:
-						textureIndex = int(mesh.materials[face.material_index].name)
-					except:
-						textureIndex = 0
-					
-					if len(face.vertices) > 3:
-						print("ERROR: non triangular face on mesh %s." % mesh.name)
-						return {"CANCELLED"}
-					vertexId0, vertexId1, vertexId2 = face.vertices
-					
-					loop_start = face.loop_start
-					uv0 = uv_layer[loop_start].uv
-					uv1 = uv_layer[loop_start + 1].uv
-					uv2 = uv_layer[loop_start + 2].uv
-					
-					uv0 = int(round(uv0[0]*255)) & 0xFF, int(round((1.0 - uv0[1])*255)) & 0xFF
-					uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
-					uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
-					
-					numFacet += 1
-					
-					faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
-				
-				mesh.free_normals_split()
-				bm.clear()
-				bm.free()
-				
 				Transformer_zObj = [numVertex, numFacet, translation, object_unk0, object_unk1, object_unk2, vertices, normals, faces]
 			else:
 				Transformer_zObj = [0, 0, [0, 0, 0], 0, 0, 0, [], [], []]
@@ -201,6 +144,70 @@ def main(context, export_path, export_traffic, m):
 	elapsed_time = time.time() - start_time
 	print("Elapsed time: %.4fs" % elapsed_time)
 	return {'FINISHED'}
+
+
+def read_object(object):
+	numVertex = 0
+	numFacet = 0
+	vertices = []
+	normals = {}
+	faces = []
+	
+	# Inits
+	mesh = object.data
+	mesh.calc_normals_split()
+	loops = mesh.loops
+	bm = bmesh.new()
+	bm.from_mesh(mesh)
+	
+	vertex_scale = 256
+	for vert in bm.verts:
+		if vert.hide == False:
+			vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
+			numVertex += 1
+	
+	uv_layer = mesh.uv_layers.active.data
+	flags = mesh.attributes.get("flag")
+	
+	for face in mesh.polygons:
+		for loop_ind in face.loop_indices:
+			vert_index = loops[loop_ind].vertex_index
+			if vert_index not in normals:
+				normals[vert_index] = loops[loop_ind].normal[:]
+		
+		try:
+			flag = flags.data[face.index].value
+		except:
+			flag = 0
+		
+		try:
+			textureIndex = int(mesh.materials[face.material_index].name)
+		except:
+			textureIndex = 0
+		
+		if len(face.vertices) > 3:
+			print("ERROR: non triangular face on mesh %s." % mesh.name)
+			return (numVertex, numFacet, vertices, normals, faces, 1)
+		vertexId0, vertexId1, vertexId2 = face.vertices
+		
+		loop_start = face.loop_start
+		uv0 = uv_layer[loop_start].uv
+		uv1 = uv_layer[loop_start + 1].uv
+		uv2 = uv_layer[loop_start + 2].uv
+		
+		uv0 = int(round(uv0[0]*255)) & 0xFF, int(round((1.0 - uv0[1])*255)) & 0xFF
+		uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
+		uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
+		
+		numFacet += 1
+		
+		faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
+	
+	mesh.free_normals_split()
+	bm.clear()
+	bm.free()
+	
+	return (numVertex, numFacet, vertices, normals, faces, 0)
 
 
 def write_Transformer_zUV(f, Transformer_zUV):
