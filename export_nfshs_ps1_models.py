@@ -55,7 +55,6 @@ def main(context, export_path, export_traffic, m):
 			continue
 		
 		file_path = os.path.join(export_path, main_collection.name)
-		os.makedirs(os.path.dirname(file_path), exist_ok = True)
 		
 		print("Reading scene data for main collection %s..." % (main_collection.name))
 		
@@ -77,166 +76,126 @@ def main(context, export_path, export_traffic, m):
 			header_unk0 = [0 for _ in range(57)]
 			header_unk1 = [0 for _ in range(90)]
 		
-		with open(file_path, "wb") as f:
-			# Writing header
-			for i in range(57):
+		object_by_index = {}
+		for obj in objects:
+			if obj.type == 'MESH' and "object_index" in obj:
+				idx = obj["object_index"]
+				if idx in object_by_index:
+					print(f"WARNING: Duplicate object_index {idx}! Skipping duplicate.")
+					continue
+				object_by_index[idx] = obj
+		
+		Transformer_zObjects = []
+		
+		for index in range(57):
+			if index in object_by_index:
+				object = object_by_index[index]
+				
+				numVertex = 0
+				numFacet = 0
+				vertices = []
+				faces = []
+				
+				# Inits
+				mesh = object.data
+				mesh.calc_normals_split()
+				loops = mesh.loops
+				bm = bmesh.new()
+				bm.from_mesh(mesh)
+									
+				translation_scale = 65536
+				translation = Matrix(np.linalg.inv(m) @ object.matrix_world)
+				translation = translation.to_translation()
+				translation = [round(translation[0]*translation_scale),
+							   round(translation[1]*translation_scale),
+							   round(translation[2]*translation_scale)]
+				if index == 39:
+					translation[0] += 0x7AE
+				elif index == 40:
+					translation[0] -= 0x7AE
+				
 				try:
-					f.write(struct.pack('<I', header_unk0[i]))
+					object_unk0 = id_to_int(object["object_unk0"])
 				except:
-					f.write(struct.pack('<I', 0))
-			for i in range(90):
+					print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk0"'))
+					object_unk0 = 0
 				try:
-					f.write(struct.pack('<I', header_unk1[i]))
+					object_unk1 = id_to_int(object["object_unk1"])
 				except:
-					f.write(struct.pack('<I', 0))
-			
-			object_by_index = {}
-			for obj in objects:
-				if obj.type == 'MESH' and "object_index" in obj:
-					idx = obj["object_index"]
-					if idx in object_by_index:
-						print(f"WARNING: Duplicate object_index {idx}! Skipping duplicate.")
-						continue
-					object_by_index[idx] = obj
-			
-			#Transformer_zObjects = []
-			
-			for index in range(57):
-				if index in object_by_index:
-					object = object_by_index[index]
-					
-					numVertex = 0
-					numFacet = 0
-					vertices = []
-					faces = []
-					
-					# Inits
-					mesh = object.data
-					mesh.calc_normals_split()
-					loops = mesh.loops
-					bm = bmesh.new()
-					bm.from_mesh(mesh)
-										
-					translation_scale = 65536
-					translation = Matrix(np.linalg.inv(m) @ object.matrix_world)
-					translation = translation.to_translation()
-					translation = [round(translation[0]*translation_scale),
-								   round(translation[1]*translation_scale),
-								   round(translation[2]*translation_scale)]
-					if index == 39:
-						translation[0] += 0x7AE
-					elif index == 40:
-						translation[0] -= 0x7AE
-					
-					try:
-						object_unk0 = id_to_int(object["object_unk0"])
-					except:
-						print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk0"'))
-						object_unk0 = 0
-					try:
-						object_unk1 = id_to_int(object["object_unk1"])
-					except:
-						print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk1"'))
-						object_unk1 = 0
-					try:
-						object_unk2 = id_to_int(object["object_unk2"])
-					except:
-						print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk2"'))
-						object_unk2 = 0
-					
-					vertex_scale = 256
-					for vert in bm.verts:
-						if vert.hide == False:
-							vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
-							numVertex += 1
-					
-					uv_layer = mesh.uv_layers.active.data
-					flags = mesh.attributes.get("flag")
-					
-					normals = {}
-					for face in mesh.polygons:
-						if export_traffic == False:
-							if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
-								for loop_ind in face.loop_indices:
-									vert_index = loops[loop_ind].vertex_index
-									if vert_index not in normals:
-										normals[vert_index] = loops[loop_ind].normal[:]
-						
-						try:
-							flag = flags.data[face.index].value
-						except:
-							flag = 0
-						
-						material_index = face.material_index
-						
-						try:
-							textureIndex = int(mesh.materials[material_index].name)
-						except:
-							textureIndex = 0
-						
-						if len(face.vertices) > 3:
-							print("ERROR: non triangular face on mesh %s." % mesh.name)
-							return {"CANCELLED"}
-						vertexId0, vertexId1, vertexId2 = face.vertices
-						
-						loop_start = face.loop_start
-						uv0 = uv_layer[loop_start].uv
-						uv1 = uv_layer[loop_start + 1].uv
-						uv2 = uv_layer[loop_start + 2].uv
-						
-						uv0 = int(round(uv0[0]*255)) & 0xFF, int(round((1.0 - uv0[1])*255)) & 0xFF
-						uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
-						uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
-						
-						numFacet += 1
-						
-						faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
-					
-					# Writing body
-					f.write(struct.pack('<H', numVertex))
-					f.write(struct.pack('<H', numFacet))
-					f.write(struct.pack('<3i', *translation))
-					f.write(struct.pack('<I', object_unk0))
-					f.write(struct.pack('<I', object_unk1))
-					f.write(struct.pack('<I', object_unk2))
-					
-					for i in range(0, numVertex):
-						f.write(struct.pack('<3h', *vertices[i]))
-					if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
-						f.write(struct.pack('<h', 0))
-					
+					print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk1"'))
+					object_unk1 = 0
+				try:
+					object_unk2 = id_to_int(object["object_unk2"])
+				except:
+					print("WARNING: object %s is missing parameter %s. Assuming some value (0)." % (object.name, '"object_unk2"'))
+					object_unk2 = 0
+				
+				vertex_scale = 256
+				for vert in bm.verts:
+					if vert.hide == False:
+						vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
+						numVertex += 1
+				
+				uv_layer = mesh.uv_layers.active.data
+				flags = mesh.attributes.get("flag")
+				
+				normals = {}
+				for face in mesh.polygons:
 					if export_traffic == False:
 						if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
-							Nvertex_scale = 4096
-							for i in range(0, numVertex):
-								normal = normals.get(i, (0.0, 0.0, 0.0))
-								Nvertex = [round(normal[0]*Nvertex_scale),
-										   round(normal[1]*Nvertex_scale),
-										   round(normal[2]*Nvertex_scale)]
-								f.write(struct.pack('<3h', *Nvertex))
-							if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
-								f.write(struct.pack('<h', 0))
+							for loop_ind in face.loop_indices:
+								vert_index = loops[loop_ind].vertex_index
+								if vert_index not in normals:
+									normals[vert_index] = loops[loop_ind].normal[:]
 					
-					for i in range(0, numFacet):
-						Transformer_zFacet = faces[i]
-						write_Transformer_zFacet(f, Transformer_zFacet)
+					try:
+						flag = flags.data[face.index].value
+					except:
+						flag = 0
 					
-					mesh.free_normals_split()
-					bm.clear()
-					bm.free()
+					try:
+						textureIndex = int(mesh.materials[face.material_index].name)
+					except:
+						textureIndex = 0
 					
-					#Transformer_zObj = [numVertex, numFacet, translation, object_unk0, object_unk1, object_unk2, vertices, normals, faces]
-				else:
-					f.write(struct.pack('<H', 0))
-					f.write(struct.pack('<H', 0))
-					f.write(struct.pack('<3i', 0, 0, 0))
-					f.write(struct.pack('<3I', 0, 0, 0))
+					if len(face.vertices) > 3:
+						print("ERROR: non triangular face on mesh %s." % mesh.name)
+						return {"CANCELLED"}
+					vertexId0, vertexId1, vertexId2 = face.vertices
 					
-					#Transformer_zObj = [0, 0, [0, 0, 0], 0, 0, 0, [], [], []]
+					loop_start = face.loop_start
+					uv0 = uv_layer[loop_start].uv
+					uv1 = uv_layer[loop_start + 1].uv
+					uv2 = uv_layer[loop_start + 2].uv
+					
+					uv0 = int(round(uv0[0]*255)) & 0xFF, int(round((1.0 - uv0[1])*255)) & 0xFF
+					uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
+					uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
+					
+					numFacet += 1
+					
+					faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
 				
-				#Transformer_zObjects.append(Transformer_zObj)
+				mesh.free_normals_split()
+				bm.clear()
+				bm.free()
+				
+				Transformer_zObj = [numVertex, numFacet, translation, object_unk0, object_unk1, object_unk2, vertices, normals, faces]
+			else:
+				Transformer_zObj = [0, 0, [0, 0, 0], 0, 0, 0, [], [], []]
 			
-			#Transformer_zScene = [header_unk0, header_unk1, Transformer_zObjects]
+			Transformer_zObjects.append(Transformer_zObj)
+		
+		Transformer_zScene = [header_unk0, header_unk1, Transformer_zObjects]
+		
+		## Writing data
+		print("\tWriting data...")
+		writing_time = time.time()
+		
+		write_Transformer_zScene(file_path, export_traffic, Transformer_zScene)
+		
+		elapsed_time = time.time() - writing_time
+		print("\t... %.4fs" % elapsed_time)	
 	
 	print("Finished")
 	elapsed_time = time.time() - start_time
@@ -264,6 +223,56 @@ def write_Transformer_zFacet(f, Transformer_zFacet):
 	write_Transformer_zUV(f, uv0)
 	write_Transformer_zUV(f, uv1)
 	write_Transformer_zUV(f, uv2)
+	
+	return 0
+
+
+def write_Transformer_zObj(f, export_traffic, index, Transformer_zObj):
+	numVertex, numFacet, translation, unk0, unk1, unk2, vertices, normals, faces = Transformer_zObj
+	
+	f.write(struct.pack('<H', numVertex))
+	f.write(struct.pack('<H', numFacet))
+	f.write(struct.pack('<3i', *translation))
+	f.write(struct.pack('<I', unk0))
+	f.write(struct.pack('<I', unk1))
+	f.write(struct.pack('<I', unk2))
+	
+	for i in range(0, numVertex):
+		f.write(struct.pack('<3h', *vertices[i]))
+	if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+		f.write(struct.pack('<h', 0))
+	
+	if export_traffic == False:
+		if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
+			Nvertex_scale = 4096
+			for i in range(0, numVertex):
+				normal = normals.get(i, (0.0, 0.0, 0.0))
+				Nvertex = [round(normal[0]*Nvertex_scale),
+						   round(normal[1]*Nvertex_scale),
+						   round(normal[2]*Nvertex_scale)]
+				f.write(struct.pack('<3h', *Nvertex))
+			if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
+				f.write(struct.pack('<h', 0))
+	
+	for i in range(0, numFacet):
+		Transformer_zFacet = faces[i]
+		write_Transformer_zFacet(f, Transformer_zFacet)
+	
+	return 0
+
+
+def write_Transformer_zScene(file_path, export_traffic, Transformer_zScene):
+	os.makedirs(os.path.dirname(file_path), exist_ok = True)
+	
+	unk0, unk1, Transformer_zObjects = Transformer_zScene
+	
+	with open(file_path, "wb") as f:
+		f.write(struct.pack('<57I', *unk0))
+		f.write(struct.pack('<90I', *unk1))
+		
+		for index in range(0, len(Transformer_zObjects)):
+			Transformer_zObj = Transformer_zObjects[index]
+			write_Transformer_zObj(f, export_traffic, index, Transformer_zObj)
 	
 	return 0
 
