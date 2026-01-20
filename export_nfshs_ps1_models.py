@@ -170,10 +170,16 @@ def read_object(object):
 	flags = mesh.attributes.get("flag")
 	
 	for face in mesh.polygons:
+		if face.hide == True:
+			continue
+		
+		uvs = []
 		for loop_ind in face.loop_indices:
 			vert_index = loops[loop_ind].vertex_index
 			if vert_index not in normals:
 				normals[vert_index] = loops[loop_ind].normal[:]
+			
+			uvs.append(uv_layer[loop_ind].uv)
 		
 		try:
 			flag = flags.data[face.index].value
@@ -181,19 +187,21 @@ def read_object(object):
 			flag = 0
 		
 		try:
-			textureIndex = int(mesh.materials[face.material_index].name)
+			if mesh.materials[face.material_index] == None:
+				print("ERROR: face without material found on mesh %s." % mesh.name)
+				return (numVertex, numFacet, vertices, normals, faces, 1)
 		except:
-			textureIndex = 0
+			print("ERROR: face without material found on mesh %s." % mesh.name)
+			return (numVertex, numFacet, vertices, normals, faces, 1)
+		
+		textureIndex = int(mesh.materials[face.material_index].name)
 		
 		if len(face.vertices) > 3:
 			print("ERROR: non triangular face on mesh %s." % mesh.name)
 			return (numVertex, numFacet, vertices, normals, faces, 1)
-		vertexId0, vertexId1, vertexId2 = face.vertices
 		
-		loop_start = face.loop_start
-		uv0 = uv_layer[loop_start].uv
-		uv1 = uv_layer[loop_start + 1].uv
-		uv2 = uv_layer[loop_start + 2].uv
+		vertexId0, vertexId1, vertexId2 = face.vertices
+		uv0, uv1, uv2 = uvs
 		
 		uv0 = int(round(uv0[0]*255)) & 0xFF, int(round((1.0 - uv0[1])*255)) & 0xFF
 		uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
