@@ -41,6 +41,12 @@ import time
 import struct
 
 
+# Global variables
+TRANSLATION_SCALE = 65536
+VERTEX_SCALE = 256
+NVERTEX_SCALE = 4096
+
+
 def main(context, file_path, is_traffic, clear_scene, global_matrix):
 	if bpy.ops.object.mode_set.poll():
 		bpy.ops.object.mode_set(mode='OBJECT')
@@ -147,33 +153,30 @@ def read_Transformer_zObj(f, is_traffic, index):
 	numVertex = struct.unpack('<H', f.read(0x2))[0]
 	numFacet = struct.unpack('<H', f.read(0x2))[0]
 	
-	translation_scale = 65536
 	translation = struct.unpack('<3i', f.read(0xC))
-	translation = [translation[0]/translation_scale, translation[1]/translation_scale, translation[2]/translation_scale]
+	translation = [translation[0]/TRANSLATION_SCALE, translation[1]/TRANSLATION_SCALE, translation[2]/TRANSLATION_SCALE]
 	
 	if index == 39:
-		translation[0] -= 0x7AE/translation_scale
+		translation[0] -= 0x7AE/TRANSLATION_SCALE
 	elif index == 40:
-		translation[0] += 0x7AE/translation_scale
+		translation[0] += 0x7AE/TRANSLATION_SCALE
 	
 	unk0 = struct.unpack('<I', f.read(0x4))[0]
 	unk1 = struct.unpack('<I', f.read(0x4))[0]
 	unk2 = struct.unpack('<I', f.read(0x4))[0]
 	
-	vertex_scale = 256
 	for i in range(numVertex):
 		vertex = struct.unpack('<3h', f.read(0x6))
-		vertex = [vertex[0]/vertex_scale, vertex[1]/vertex_scale, vertex[2]/vertex_scale]
+		vertex = [vertex[0]/VERTEX_SCALE, vertex[1]/VERTEX_SCALE, vertex[2]/VERTEX_SCALE]
 		vertices.append((vertex[0], vertex[1], vertex[2]))
 	if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
 		padding = f.read(0x2)
 	
-	Nvertex_scale = 4096
 	if is_traffic == False:
 		if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
 			for i in range(numVertex):
 				Nvertex = struct.unpack('<3h', f.read(0x6))
-				Nvertex = [Nvertex[0]/Nvertex_scale, Nvertex[1]/Nvertex_scale, Nvertex[2]/Nvertex_scale]
+				Nvertex = [Nvertex[0]/NVERTEX_SCALE, Nvertex[1]/NVERTEX_SCALE, Nvertex[2]/NVERTEX_SCALE]
 				normals.append((Nvertex[0], Nvertex[1], Nvertex[2]))
 			if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
 				padding = f.read(0x2)
