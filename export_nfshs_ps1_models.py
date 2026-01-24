@@ -152,6 +152,8 @@ def main(context, export_path, export_traffic, m):
 
 
 def read_object(object):
+	numVertex = 0
+	numFacet = 0
 	vertices = []
 	normals = {}
 	faces = []
