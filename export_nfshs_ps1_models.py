@@ -38,6 +38,12 @@ import struct
 import numpy as np
 
 
+# Global variables
+TRANSLATION_SCALE = 65536
+VERTEX_SCALE = 256
+NVERTEX_SCALE = 4096
+
+
 def main(context, export_path, export_traffic, m):
 	os.system('cls')
 	start_time = time.time()
@@ -96,12 +102,11 @@ def main(context, export_path, export_traffic, m):
 				if status == 1:
 					return {'CANCELLED'}
 				
-				translation_scale = 65536
 				translation = Matrix(np.linalg.inv(m) @ object.matrix_world)
 				translation = translation.to_translation()
-				translation = [round(translation[0]*translation_scale),
-							   round(translation[1]*translation_scale),
-							   round(translation[2]*translation_scale)]
+				translation = [round(translation[0]*TRANSLATION_SCALE),
+							   round(translation[1]*TRANSLATION_SCALE),
+							   round(translation[2]*TRANSLATION_SCALE)]
 				if index == 39:
 					translation[0] += 0x7AE
 				elif index == 40:
@@ -147,11 +152,11 @@ def main(context, export_path, export_traffic, m):
 
 
 def read_object(object):
-	numVertex = 0
-	numFacet = 0
 	vertices = []
 	normals = {}
 	faces = []
+	vertices_list = {}
+	vert_ind = 0
 	
 	# Inits
 	mesh = object.data
@@ -160,11 +165,17 @@ def read_object(object):
 	bm = bmesh.new()
 	bm.from_mesh(mesh)
 	
-	vertex_scale = 256
 	for vert in bm.verts:
 		if vert.hide == False:
-			vertices.append([round(vert_co*vertex_scale) for i, vert_co in enumerate(vert.co)])
-			numVertex += 1
+			vertices.append([round(vert_co*VERTEX_SCALE) for i, vert_co in enumerate(vert.co)])
+			vertices_list[vert.index] = vert_ind
+			vert_ind += 1
+	
+	if len(vertices) > 0xFFFF:
+		print("ERROR: number of vertices higher than the supported by the game on mesh %s." % mesh.name)
+		return (numVertex, numFacet, vertices, normals, faces, 1)
+	
+	numVertex = len(vertices)
 	
 	uv_layer = mesh.uv_layers.active.data
 	flags = mesh.attributes.get("flag")
@@ -173,12 +184,14 @@ def read_object(object):
 		if face.hide == True:
 			continue
 		
+		vertexIds = []
 		uvs = []
 		for loop_ind in face.loop_indices:
-			vert_index = loops[loop_ind].vertex_index
+			vert_index = vertices_list[loops[loop_ind].vertex_index]
 			if vert_index not in normals:
 				normals[vert_index] = loops[loop_ind].normal[:]
 			
+			vertexIds.append(vert_index)
 			uvs.append(uv_layer[loop_ind].uv)
 		
 		try:
@@ -200,16 +213,20 @@ def read_object(object):
 			print("ERROR: non triangular face on mesh %s." % mesh.name)
 			return (numVertex, numFacet, vertices, normals, faces, 1)
 		
-		vertexId0, vertexId1, vertexId2 = face.vertices
+		vertexId0, vertexId1, vertexId2 = vertexIds
 		uv0, uv1, uv2 = uvs
 		
 		uv0 = int(round(uv0[0]*255)) & 0xFF, int(round((1.0 - uv0[1])*255)) & 0xFF
 		uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
 		uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
 		
-		numFacet += 1
-		
 		faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
+	
+	if len(faces) > 0xFFFF:
+		print("ERROR: number of faces higher than the supported by the game on mesh %s." % mesh.name)
+		return (numVertex, numFacet, vertices, normals, faces, 1)
+	
+	numFacet = len(faces)
 	
 	mesh.free_normals_split()
 	bm.clear()
@@ -253,18 +270,21 @@ def write_Transformer_zObj(f, export_traffic, index, Transformer_zObj):
 	f.write(struct.pack('<I', unk2))
 	
 	for i in range(0, numVertex):
-		f.write(struct.pack('<3h', *vertices[i]))
+		try:
+			f.write(struct.pack('<3h', *vertices[i]))
+		except:
+			#print("ERROR: vertex coordinate higher than the maximum allowed. Writing zeros.")
+			f.write(struct.pack("<3h", 0, 0, 0))
 	if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
 		f.write(struct.pack('<h', 0))
 	
 	if export_traffic == False:
 		if get_R3DCar_ObjectInfo(index)[1] & 1 != 0:
-			Nvertex_scale = 4096
 			for i in range(0, numVertex):
 				normal = normals.get(i, (0.0, 0.0, 0.0))
-				Nvertex = [round(normal[0]*Nvertex_scale),
-						   round(normal[1]*Nvertex_scale),
-						   round(normal[2]*Nvertex_scale)]
+				Nvertex = [round(normal[0]*NVERTEX_SCALE),
+						   round(normal[1]*NVERTEX_SCALE),
+						   round(normal[2]*NVERTEX_SCALE)]
 				f.write(struct.pack('<3h', *Nvertex))
 			if numVertex % 2 == 1:	#Data offset, happens when numVertex is odd
 				f.write(struct.pack('<h', 0))
@@ -352,6 +372,41 @@ def get_R3DCar_ObjectInfo(index):
 						 56: [0x20, 0x00, 0x09, 0x01, 0x00, 0x00]}
 	
 	return R3DCar_ObjectInfo[index]
+
+
+def flag_encode(flag, endian):
+	flag_value = 0
+	
+	flag_names = [
+		"unknown_0",
+		"unknown_1",
+		"unknown_2",
+		"unknown_3",
+		"unknown_4",
+		"unknown_5",
+		"unknown_6",
+		"unknown_7",
+		"unknown_8",
+		"unknown_9",
+		"unknown_10",
+		"unknown_11",
+		"unknown_12",
+		"unknown_13",
+		"unknown_14",
+		"unknown_15"
+	]
+	
+	for i, value in enumerate(flag):
+		if value:
+			flag_value |= (1 << i)
+	
+	packed_value = (
+		(flag_value & 0xFFFF)
+	)
+	
+	flag_bytes = packed_value.to_bytes(2, byteorder=endian)
+	
+	return flag_bytes
 
 
 def id_to_int(id):
