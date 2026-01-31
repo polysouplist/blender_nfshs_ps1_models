@@ -216,11 +216,11 @@ def read_object(object):
 			return (numVertex, numFacet, vertices, normals, faces, 1)
 		
 		vertexId0, vertexId1, vertexId2 = vertexIds
-		uv0, uv1, uv2 = uvs
 		
-		uv0 = int(round(uv0[0]*255)) & 0xFF, int(round((1.0 - uv0[1])*255)) & 0xFF
-		uv1 = int(round(uv1[0]*255)) & 0xFF, int(round((1.0 - uv1[1])*255)) & 0xFF
-		uv2 = int(round(uv2[0]*255)) & 0xFF, int(round((1.0 - uv2[1])*255)) & 0xFF
+		for i, uv in enumerate(uvs):
+			uvs[i] = int(round(uv[0]*255)) & 0xFF, int(round((1.0 - uv[1])*255)) & 0xFF
+		
+		uv0, uv1, uv2 = uvs
 		
 		faces.append([flag, textureIndex, vertexId0, vertexId1, vertexId2, uv0, uv1, uv2])
 	
